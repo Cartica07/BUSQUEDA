@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Se Busca — Avisos de personas y mascotas perdidas</title>
+<meta name="description" content="Publicá o buscá avisos de personas y mascotas perdidas tras el terremoto en Colombia. Contactá directo por WhatsApp.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
+    </div>
+  </a>
+  <a href="crear.html" class="btn-publicar">+ Publicar aviso</a>
+</header>
+
+<div class="context-banner">
+  Red comunitaria para reencontrar personas y mascotas tras el sismo. <strong>Si es una emergencia de vida, llamá al 123.</strong>
+</div>
+
+<div class="filters">
+  <div class="tab-group" id="tabsCategoria">
+    <button class="tab active" data-cat="todas">Todas</button>
+    <button class="tab" data-cat="persona">Personas</button>
+    <button class="tab" data-cat="mascota">Mascotas</button>
+  </div>
+  <select class="select-ciudad" id="selectCiudad">
+    <option value="todas">Todas las ciudades</option>
+  </select>
+  <span class="contador" id="contador"></span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="empty-state" id="emptyState" style="display:none">
+  <div class="display">Todavía no hay avisos acá</div>
+  <p>Sé la primera persona en publicar uno.</p>
+</div>
+
+<footer>
+  Hecho por la comunidad, para la comunidad · Los datos de contacto los ve cualquiera que entre a la página, compartí solo lo que quieras hacer público.
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

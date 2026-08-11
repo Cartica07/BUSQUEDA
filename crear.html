@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publicar aviso — Se Busca</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
+    </div>
+  </a>
+  <a href="index.html" class="btn-publicar" style="background:transparent;color:#fff;">← Volver</a>
+</header>
+
+<div class="form-wrap">
+  <h1>Publicar aviso</h1>
+  <p class="lead">Completá los datos. Tu número de contacto va a quedar visible para que cualquiera pueda escribirte si tiene información.</p>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <form id="formAviso">
+    <div class="field">
+      <label>¿Qué estás reportando?</label>
+      <div class="categoria-toggle">
+        <button type="button" class="active" data-cat="persona">Persona perdida</button>
+        <button type="button" data-cat="mascota">Mascota perdida</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="labelNombre">Nombre de la persona</label>
+      <input type="text" id="nombre" placeholder="Ej: María Fernanda Rojas" required>
+    </div>
+
+    <div class="field" id="campoEdad">
+      <label>Edad (opcional)</label>
+      <input type="text" id="edad" placeholder="Ej: 34 años">
+    </div>
+
+    <div class="field">
+      <label>Ciudad</label>
+      <input type="text" id="ciudad" placeholder="Ej: Armenia, Quindío" required>
+    </div>
+
+    <div class="field">
+      <label>Descripción (opcional)</label>
+      <textarea id="descripcion" placeholder="Última vez visto/a, ropa, señas particulares, raza, color, cualquier detalle que ayude..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Foto</label>
+      <div class="foto-drop" id="fotoDrop">
+        <span id="fotoTexto">Tocá para subir una foto</span>
+        <input type="file" id="fotoInput" accept="image/*">
+      </div>
+      <div class="hint">La foto se comprime automáticamente antes de subirla.</div>
+    </div>
+
+    <div class="field">
+      <label>Tu WhatsApp de contacto</label>
+      <input type="tel" id="whatsapp" placeholder="Ej: 3001234567" required>
+      <div class="hint">Con indicativo si es posible. Va a aparecer como botón directo de WhatsApp en el aviso.</div>
+    </div>
+
+    <div class="field">
+      <label>Otra red social (opcional)</label>
+      <input type="text" id="redSocial" placeholder="Ej: @usuario en Instagram">
+    </div>
+
+    <button type="submit" class="btn-submit" id="btnSubmit">Publicar aviso</button>
+  </form>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/crear.js"></script>
+</body>
+</html>

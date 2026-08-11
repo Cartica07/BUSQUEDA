@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviso — Se Busca</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
+    </div>
+  </a>
+  <a href="crear.html" class="btn-publicar">+ Publicar aviso</a>
+</header>
+
+<div class="aviso-wrap">
+  <a href="index.html" class="back-link">← Volver a todos los avisos</a>
+
+  <div id="contenedorAviso">
+    <p class="mono" style="color:var(--muted);">Cargando aviso...</p>
+  </div>
+
+  <div class="chat-section" id="chatSection" style="display:none">
+    <h2>Comentarios</h2>
+    <p class="lead">¿Lo viste? ¿Tenés información? Dejá un mensaje acá abajo, en cualquier momento cualquiera puede responder.</p>
+
+    <div class="chat-list" id="chatList"></div>
+
+    <form class="chat-form" id="chatForm">
+      <div class="row">
+        <input type="text" id="chatAutor" placeholder="Tu nombre (opcional)">
+      </div>
+      <textarea id="chatMensaje" placeholder="Escribí tu mensaje..." required></textarea>
+      <button type="submit">Enviar comentario</button>
+    </form>
+  </div>
+</div>
+
+<footer>
+  Hecho por la comunidad, para la comunidad · Verificá siempre la información antes de actuar sobre ella.
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/aviso.js"></script>
+</body>
+</html>
