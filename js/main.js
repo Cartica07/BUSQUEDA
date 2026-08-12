@@ -6,6 +6,7 @@ let todosLosAvisos = {};
 let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
+let filtroNombre = '';
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -13,6 +14,7 @@ const contador = document.getElementById('contador');
 const selectDepartamento = document.getElementById('selectDepartamento');
 const selectCiudad = document.getElementById('selectCiudad');
 const tabsCategoria = document.getElementById('tabsCategoria');
+const inputBuscar = document.getElementById('buscarNombre');
 
 // Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
 db.ref('avisos').on('value', (snapshot) => {
@@ -38,6 +40,14 @@ selectDepartamento.addEventListener('change', () => {
 
 selectCiudad.addEventListener('change', () => {
   filtroCiudad = selectCiudad.value;
+  render();
+});
+
+// Búsqueda por nombre: no distingue mayúsculas/minúsculas, ignora espacios
+// de sobra y hace coincidencia parcial (con poner una parte del nombre
+// alcanza, sin importar en qué lugar del nombre completo esté).
+inputBuscar.addEventListener('input', () => {
+  filtroNombre = normalizarTexto(inputBuscar.value);
   render();
 });
 
@@ -83,6 +93,7 @@ function render() {
     .filter(([id, a]) => filtroCategoria === 'todas' || a.categoria === filtroCategoria)
     .filter(([id, a]) => filtroDepartamento === 'todas' || a.departamento === filtroDepartamento)
     .filter(([id, a]) => filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
+    .filter(([id, a]) => !filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre))
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
@@ -148,4 +159,17 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Deja el texto listo para comparar: sin espacios de sobra al inicio/final,
+// todo en minúsculas y sin tildes (así "Sara" y "SARA " o "sára" matchean
+// igual). Se usa tanto para lo que escribe la persona como para el nombre
+// guardado en cada aviso.
+function normalizarTexto(str) {
+  return (str || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
