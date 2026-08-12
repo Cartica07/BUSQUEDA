@@ -21,11 +21,20 @@
 
 <div class="form-wrap">
   <h1>Publicar aviso</h1>
-  <p class="lead">Completá los datos. Tu número de contacto va a quedar visible para que cualquiera pueda escribirte si tiene información.</p>
+  <p class="lead">Subí el poster o aviso que ya tenés armado. Tu número de contacto va a quedar visible para que cualquiera pueda escribirte si tiene información.</p>
 
   <div class="error-msg" id="errorMsg"></div>
 
   <form id="formAviso">
+    <div class="field">
+      <label>Poster / aviso</label>
+      <div class="foto-drop" id="fotoDrop">
+        <span id="fotoTexto">Tocá para subir el poster que ya tenés (foto o imagen)</span>
+        <input type="file" id="fotoInput" accept="image/*" required>
+      </div>
+      <div class="hint">Subí la imagen del aviso tal como la tenés — la página es para alojarla y difundirla, no la creamos de nuevo. Se comprime automáticamente.</div>
+    </div>
+
     <div class="field">
       <label>¿Qué estás reportando?</label>
       <div class="categoria-toggle">
@@ -46,21 +55,20 @@
 
     <div class="field">
       <label>Ciudad</label>
-      <input type="text" id="ciudad" placeholder="Ej: Armenia, Quindío" required>
+      <select id="ciudad" required>
+        <option value="" disabled selected>Elegí la ciudad afectada</option>
+      </select>
+      <input type="text" id="ciudadOtra" placeholder="Escribí el nombre de la ciudad" style="display:none; margin-top:8px;">
+    </div>
+
+    <div class="field">
+      <label id="labelSector">Sector <span style="font-weight:400;color:var(--muted);">(barrio, comuna o zona)</span></label>
+      <input type="text" id="sector" placeholder="Elegí primero la ciudad" disabled>
     </div>
 
     <div class="field">
       <label>Descripción (opcional)</label>
       <textarea id="descripcion" placeholder="Última vez visto/a, ropa, señas particulares, raza, color, cualquier detalle que ayude..."></textarea>
-    </div>
-
-    <div class="field">
-      <label>Foto</label>
-      <div class="foto-drop" id="fotoDrop">
-        <span id="fotoTexto">Tocá para subir una foto</span>
-        <input type="file" id="fotoInput" accept="image/*">
-      </div>
-      <div class="hint">La foto se comprime automáticamente antes de subirla.</div>
     </div>
 
     <div class="field">
