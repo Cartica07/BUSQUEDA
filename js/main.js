@@ -19,6 +19,7 @@ const inputBuscar = document.getElementById('buscarNombre');
 const tipoToggle = document.getElementById('tipoToggle');
 const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
+const contadorResueltos = document.getElementById('contadorResueltos');
 
 // Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
 db.ref('avisos').on('value', (snapshot) => {
@@ -107,6 +108,17 @@ function tipoDe(aviso) {
   return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
+// Clasifica cada aviso en una de las 3 pestañas del filtro superior:
+// 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
+// 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
+//                 esté o no ya entregado/reclamado.
+// 'resuelto'   -> era un aviso de "perdido" y su propio dueño/familia avisó
+//                 que ya apareció (no interviene ningún tercero).
+function categoriaFiltro(aviso) {
+  if (tipoDe(aviso) === 'encontrado') return 'encontrado';
+  return aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
+}
+
 function render() {
   const coincideFiltrosBase = ([id, a]) =>
     (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
@@ -116,14 +128,16 @@ function render() {
 
   const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
 
-  // Los contadores de "Perdidos" / "Encontrados" reflejan los filtros de
-  // categoría, ubicación y nombre que estén activos, para que la persona
-  // sepa cuántos resultados hay en cada mitad antes de elegir una.
-  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => tipoDe(a) === 'perdido').length;
-  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => tipoDe(a) === 'encontrado').length;
+  // Los contadores de "Perdidos" / "Encontrados por otras personas" / "Ya
+  // encontrado por los dueños" reflejan los filtros de categoría, ubicación
+  // y nombre que estén activos, para que la persona sepa cuántos resultados
+  // hay en cada pestaña antes de elegir una.
+  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
+  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
+  contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
 
   const entradas = todasLasCoincidencias
-    .filter(([id, a]) => tipoDe(a) === filtroTipo)
+    .filter(([id, a]) => categoriaFiltro(a) === filtroTipo)
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
@@ -149,9 +163,9 @@ function crearCard(id, aviso) {
   const { stampClass, stampTexto } = calcularSello(aviso);
 
   // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
-  // dueño/familia marcó como resuelto. Se distingue con una cinta grande
-  // y cruzada (como los carteles físicos reales), para que no se confunda
-  // con "HALLADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
+  // dueño/familia marcó como resuelto. Ahora vive en su propia pestaña
+  // ("Ya encontrado por los dueños"), para que no se confunda con el sello
+  // rojo "ENCONTRADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
   const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
 
   a.innerHTML = `
@@ -190,7 +204,9 @@ function calcularSello(aviso) {
     if (resuelto) {
       return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
     }
-    return { stampClass: 'encontrado', stampTexto: esMascota ? 'HALLADO' : 'HALLADO/A' };
+    // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
+    // se note que está pendiente de que su dueño lo reclame.
+    return { stampClass: 'pendiente', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
   }
 
   if (resuelto) {
