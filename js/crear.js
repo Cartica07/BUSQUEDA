@@ -1,19 +1,9 @@
 // ============================================================
 // FORMULARIO DE CREACIÓN — crear.html
 // ============================================================
-
-// Ciudades afectadas por el terremoto del 10 de agosto de 2026 (mag. 7.4, epicentro
-// en San José del Palmar, Chocó). Ajustá esta lista si aparecen más zonas afectadas.
-const CIUDADES_AFECTADAS = [
-  'Cali',
-  'Pereira',
-  'Manizales',
-  'Quibdó',
-  'Armenia',
-  'San José del Palmar (Chocó)',
-  'Buenaventura',
-  'Otra ciudad afectada'
-];
+// Nota: la lista de departamentos y municipios (COLOMBIA_DATA) y el
+// orden de departamentos afectados (DEPARTAMENTOS_AFECTADOS) vienen
+// del archivo js/colombia-data.js, que se carga antes que este script.
 
 let categoriaSeleccionada = 'persona';
 let imagenBase64 = null;
@@ -36,26 +26,79 @@ const fotoTexto = document.getElementById('fotoTexto');
 const form = document.getElementById('formAviso');
 const btnSubmit = document.getElementById('btnSubmit');
 const errorMsg = document.getElementById('errorMsg');
-const ciudadSelect = document.getElementById('ciudad');
-const ciudadOtra = document.getElementById('ciudadOtra');
+const departamentoSelect = document.getElementById('departamento');
+const campoMunicipio = document.getElementById('campoMunicipio');
+const municipioSelect = document.getElementById('municipio');
+const municipioOtro = document.getElementById('municipioOtro');
 const sectorInput = document.getElementById('sector');
 
-// Poblar el select de ciudades
-CIUDADES_AFECTADAS.forEach(c => {
-  const opt = document.createElement('option');
-  opt.value = c;
-  opt.textContent = c;
-  ciudadSelect.appendChild(opt);
+const OTRO_MUNICIPIO = 'Otro / no aparece en la lista';
+
+// ---------- Poblar el select de departamentos ----------
+// Primero los departamentos con afectación reportada (más rápidos de
+// encontrar), después el resto en orden alfabético.
+(function poblarDepartamentos() {
+  const todos = Object.keys(COLOMBIA_DATA).sort((a, b) => a.localeCompare(b, 'es'));
+  const afectados = DEPARTAMENTOS_AFECTADOS.filter(d => todos.includes(d));
+  const resto = todos.filter(d => !afectados.includes(d));
+
+  if (afectados.length) {
+    const grupoAfectados = document.createElement('optgroup');
+    grupoAfectados.label = 'Departamentos con afectación reportada';
+    afectados.forEach(dep => {
+      const opt = document.createElement('option');
+      opt.value = dep;
+      opt.textContent = dep;
+      grupoAfectados.appendChild(opt);
+    });
+    departamentoSelect.appendChild(grupoAfectados);
+  }
+
+  const grupoResto = document.createElement('optgroup');
+  grupoResto.label = 'Todos los departamentos';
+  resto.forEach(dep => {
+    const opt = document.createElement('option');
+    opt.value = dep;
+    opt.textContent = dep;
+    grupoResto.appendChild(opt);
+  });
+  departamentoSelect.appendChild(grupoResto);
+})();
+
+// Al elegir departamento: se despliega el selector de municipio con
+// todos los municipios de ese departamento (más la opción "Otro").
+departamentoSelect.addEventListener('change', () => {
+  poblarMunicipios(departamentoSelect.value);
+  guardarBorrador();
 });
 
-// Al elegir ciudad: se desbloquea el campo "Sector", y si es "Otra" se pide el nombre
-ciudadSelect.addEventListener('change', () => {
-  const esOtra = ciudadSelect.value === 'Otra ciudad afectada';
-  ciudadOtra.style.display = esOtra ? 'block' : 'none';
-  ciudadOtra.required = esOtra;
+function poblarMunicipios(depto) {
+  municipioSelect.innerHTML = '<option value="" selected>Elegí el municipio</option>';
+  municipioOtro.style.display = 'none';
+  municipioOtro.value = '';
 
-  sectorInput.disabled = false;
-  sectorInput.placeholder = 'Ej: Barrio El Pueblo, Comuna 3...';
+  if (!depto || !COLOMBIA_DATA[depto]) {
+    campoMunicipio.style.display = 'none';
+    return;
+  }
+  campoMunicipio.style.display = 'block';
+
+  COLOMBIA_DATA[depto].forEach(mun => {
+    const opt = document.createElement('option');
+    opt.value = mun;
+    opt.textContent = mun;
+    municipioSelect.appendChild(opt);
+  });
+
+  const optOtro = document.createElement('option');
+  optOtro.value = OTRO_MUNICIPIO;
+  optOtro.textContent = 'Otro / no aparece en la lista';
+  municipioSelect.appendChild(optOtro);
+}
+
+municipioSelect.addEventListener('change', () => {
+  const esOtro = municipioSelect.value === OTRO_MUNICIPIO;
+  municipioOtro.style.display = esOtro ? 'block' : 'none';
   guardarBorrador();
 });
 
@@ -119,8 +162,9 @@ function guardarBorrador() {
     const borrador = {
       categoria: categoriaSeleccionada,
       nombre: nombreInput.value,
-      ciudad: ciudadSelect.value,
-      ciudadOtra: ciudadOtra.value,
+      departamento: departamentoSelect.value,
+      municipio: municipioSelect.value,
+      municipioOtro: municipioOtro.value,
       sector: sectorInput.value,
       descripcion: document.getElementById('descripcion').value,
       whatsapp: document.getElementById('whatsapp').value,
@@ -160,11 +204,17 @@ function restaurarBorrador() {
   }
 
   if (borrador.nombre) nombreInput.value = borrador.nombre;
-  if (borrador.ciudad) {
-    ciudadSelect.value = borrador.ciudad;
-    ciudadSelect.dispatchEvent(new Event('change'));
+
+  if (borrador.departamento) {
+    departamentoSelect.value = borrador.departamento;
+    poblarMunicipios(borrador.departamento);
+    if (borrador.municipio) municipioSelect.value = borrador.municipio;
+    if (borrador.municipioOtro) {
+      municipioOtro.value = borrador.municipioOtro;
+      municipioOtro.style.display = municipioSelect.value === OTRO_MUNICIPIO ? 'block' : 'none';
+    }
   }
-  if (borrador.ciudadOtra) ciudadOtra.value = borrador.ciudadOtra;
+
   if (borrador.sector) sectorInput.value = borrador.sector;
   if (borrador.descripcion) document.getElementById('descripcion').value = borrador.descripcion;
   if (borrador.whatsapp) document.getElementById('whatsapp').value = borrador.whatsapp;
@@ -183,7 +233,7 @@ function restaurarBorrador() {
 }
 
 // Cualquier cambio en estos campos actualiza el borrador guardado
-[nombreInput, ciudadOtra, sectorInput, document.getElementById('descripcion'),
+[nombreInput, sectorInput, municipioOtro, document.getElementById('descripcion'),
  document.getElementById('whatsapp'), document.getElementById('redSocial'),
  document.getElementById('edad')].forEach(el => {
   el.addEventListener('input', guardarBorrador);
@@ -196,23 +246,21 @@ form.addEventListener('submit', (e) => {
   errorMsg.classList.remove('show');
 
   const nombre = nombreInput.value.trim();
-  const ciudad = ciudadSelect.value === 'Otra ciudad afectada'
-    ? ciudadOtra.value.trim()
-    : ciudadSelect.value;
+  const departamento = departamentoSelect.value;
+  const municipio = municipioSelect.value === OTRO_MUNICIPIO
+    ? municipioOtro.value.trim()
+    : municipioSelect.value;
   const sector = sectorInput.value.trim();
   const descripcion = document.getElementById('descripcion').value.trim();
   const whatsappRaw = document.getElementById('whatsapp').value.trim();
   const redSocial = document.getElementById('redSocial').value.trim();
   const edad = document.getElementById('edad').value.trim();
 
+  // El único dato realmente obligatorio es el aviso/foto: ya viene con
+  // toda la información escrita, así que el resto de campos son de apoyo
+  // para poder filtrar y buscar, no un requisito para publicar.
   if (!imagenBase64) {
-    errorMsg.textContent = 'Sube la imagen del poster o aviso antes de publicar.';
-    errorMsg.classList.add('show');
-    return;
-  }
-
-  if (!nombre || !ciudad) {
-    errorMsg.textContent = 'Completá al menos nombre y ciudad.';
+    errorMsg.textContent = 'Sube el aviso de búsqueda antes de publicar.';
     errorMsg.classList.add('show');
     return;
   }
@@ -233,8 +281,7 @@ form.addEventListener('submit', (e) => {
 
   const nuevoAviso = {
     categoria: categoriaSeleccionada,
-    nombre,
-    ciudad,
+    nombre: nombre || (categoriaSeleccionada === 'mascota' ? 'Mascota sin nombre' : 'Sin nombre'),
     descripcion,
     whatsapp: whatsappFinal,
     redSocial,
@@ -242,6 +289,8 @@ form.addEventListener('submit', (e) => {
     estado: 'buscando',
     fecha: Date.now()
   };
+  if (departamento) nuevoAviso.departamento = departamento;
+  if (municipio) nuevoAviso.ciudad = municipio;
   if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
   if (sector) nuevoAviso.sector = sector;
 
