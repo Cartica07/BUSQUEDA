@@ -37,8 +37,8 @@ function renderAviso(aviso) {
 
   let stampTexto, stampClassFinal;
   if (esTipoEncontrado) {
-    stampClassFinal = 'encontrado';
-    stampTexto = resuelto ? (esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A') : (esMascota ? 'HALLADO' : 'HALLADO/A');
+    stampClassFinal = resuelto ? 'encontrado' : 'pendiente';
+    stampTexto = resuelto ? (esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A') : (esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A');
   } else if (resuelto) {
     stampClassFinal = 'encontrado';
     stampTexto = esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A';
