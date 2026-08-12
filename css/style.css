@@ -186,7 +186,8 @@ button, .btn{
 .tipo-label{
   font-family:'Barlow Condensed',sans-serif; font-weight:800;
   font-size:14px; text-transform:uppercase; letter-spacing:0.03em;
-  line-height:1.1; text-align:center;
+  line-height:1.18; text-align:center;
+  text-wrap:balance; /* reparte el texto en líneas parejas en vez de dejar una línea larga y otra cortita */
 }
 .tipo-count{
   font-family:'IBM Plex Mono',monospace; font-size:12px;
@@ -279,6 +280,24 @@ button, .btn{
 .stamp.encontrado{ color:var(--found); background:rgba(255,253,248,0.92); border-color:var(--found); }
 .stamp.pendiente{ color:var(--pendiente); background:rgba(255,253,248,0.92); border-color:var(--pendiente); }
 
+/* Envuelve solo la foto (no el resto de la tarjeta) para poder recortar
+   la cinta diagonal "Ya apareció" justo en el borde de la imagen. */
+.media-wrap{ position:relative; overflow:hidden; }
+.ribbon-aparecio{
+  position:absolute; left:50%; top:50%;
+  width:150%;
+  padding:5px 0;
+  background:rgba(107,76,138,0.87); /* var(--resuelto), semitransparente para que sea sutil */
+  color:#fff;
+  text-align:center;
+  font-family:'Barlow Condensed',sans-serif; font-weight:800;
+  font-size:15px; letter-spacing:0.08em; text-transform:uppercase;
+  transform:translate(-50%,-50%) rotate(-32deg);
+  box-shadow:0 2px 6px rgba(0,0,0,0.18);
+  z-index:3;
+  pointer-events:none;
+}
+
 .card .body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:6px; flex:1; }
 .card .nombre{ font-size:26px; }
 .card .meta{ font-size:12px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
@@ -289,6 +308,23 @@ button, .btn{
   display:flex; align-items:center; justify-content:space-between; }
 .card .ciudad{ font-size:12px; font-weight:600; }
 .card .comentarios-count{ font-size:11.5px; color:var(--muted); }
+
+/* Botón "Contactar" dentro de la tarjeta: es puramente visual, vive adentro
+   del mismo <a> que ya lleva a aviso.html, así que tocarlo hace exactamente
+   lo mismo que tocar cualquier otra parte de la tarjeta. Está para que la
+   gente identifique de un vistazo que se puede entrar a ver el contacto. */
+.card .btn-contactar{
+  margin-top:10px;
+  background:var(--primary); color:#fff;
+  padding:9px 0;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:14.5px; font-weight:800;
+  text-transform:uppercase; letter-spacing:0.05em;
+  text-align:center;
+  border-radius:var(--radius);
+  transition:background .15s ease;
+}
+.card:hover .btn-contactar{ background:var(--primary-dark); }
 
 /* ---------- Formularios ---------- */
 .form-wrap{ max-width:640px; margin:0 auto; padding:34px 20px 80px; }
@@ -488,9 +524,15 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
   .card .ciudad{ font-size:10.5px; }
   .card .comentarios-count{ font-size:10px; }
   .stamp{ font-size:10px; padding:3px 7px; top:6px; right:6px; }
+  .ribbon-aparecio{ font-size:12px; padding:4px 0; }
+  .card .btn-contactar{ font-size:12.5px; padding:7px 0; margin-top:8px; }
   .tipo-toggle{ max-width:100%; }
   .tipo-btn{ padding:9px 4px 8px; gap:3px; }
-  .tipo-label{ font-size:11px; letter-spacing:0.01em; }
+  .tipo-label{ font-size:11.5px; letter-spacing:0.01em; line-height:1.2; }
+  /* "Ya encontrado por los dueños" es el texto más largo de los 3 y quedaba
+     apretado en 3 líneas chiquitas; un poco más grande + reparto parejo
+     (text-wrap:balance de arriba) lo deja más legible. */
+  .tipo-btn[data-tipo="resuelto"] .tipo-label{ font-size:12.5px; }
   .tipo-count{ font-size:11px; padding:1px 7px; }
   .card .tape{ width:52px; height:16px; top:-6px; }
   .contador{ font-size:11px; }
