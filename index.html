@@ -41,6 +41,16 @@
   <div class="search-box">
     <input type="text" id="buscarNombre" placeholder="Buscalo por el nombre..." autocomplete="off">
   </div>
+  <div class="tipo-toggle" id="tipoToggle">
+    <button class="tipo-btn active" data-tipo="perdido">
+      <span class="tipo-label">Perdidos</span>
+      <span class="tipo-count" id="contadorPerdidos">0</span>
+    </button>
+    <button class="tipo-btn" data-tipo="encontrado">
+      <span class="tipo-label">Encontrados</span>
+      <span class="tipo-count" id="contadorEncontrados">0</span>
+    </button>
+  </div>
 </div>
 
 <div class="grid" id="grid"></div>
