@@ -64,24 +64,36 @@ button, .btn{
 }
 .brand .mark{
   width:34px; height:34px;
-  background:var(--urgente);
   border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:18px;
   flex-shrink:0;
+  overflow:hidden;
+  border:1.5px solid rgba(255,255,255,0.35);
+  box-shadow:0 1px 3px rgba(0,0,0,0.25);
+}
+.brand .mark-flag{
+  width:100%; height:100%;
+  object-fit:cover;
+  display:block;
 }
 .brand .name{ font-size:20px; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; }
 .brand .sub{ display:block; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:#BFD3D1; text-transform:none; letter-spacing:0.03em; }
 
 .btn-publicar{
   background:var(--urgente); color:#fff;
-  padding:10px 18px; font-size:14px;
+  padding:11px 20px 10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:16px; font-weight:800;
+  text-transform:uppercase; letter-spacing:0.04em;
   border-radius:var(--radius);
   text-decoration:none;
-  display:inline-flex; align-items:center; gap:6px;
-  transition:background .15s ease;
+  display:inline-flex; align-items:center; gap:7px;
+  box-shadow:0 4px 14px rgba(217,84,28,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition:background .15s ease, transform .15s ease, box-shadow .15s ease;
+  flex-shrink:0;
 }
-.btn-publicar:hover{ background:var(--urgente-dark); }
+.btn-publicar:hover{ background:var(--urgente-dark); transform:translateY(-1px); box-shadow:0 6px 18px rgba(217,84,28,0.6), inset 0 1px 0 rgba(255,255,255,0.15); }
+.btn-publicar:active{ transform:translateY(0); }
 
 /* ---------- Banner de contexto ---------- */
 .context-banner{
@@ -98,7 +110,7 @@ button, .btn{
 .filters{
   max-width:1100px; margin:0 auto;
   padding:20px 20px 6px;
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
 }
 .tab-group{ display:flex; gap:6px; background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:3px; }
 .tab{
@@ -107,14 +119,17 @@ button, .btn{
 }
 .tab.active{ background:var(--primary); color:#fff; }
 
+.filters-location{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+
 .select-ciudad{
   border:1px solid var(--line); background:var(--paper);
   padding:8px 12px; border-radius:16px; font-size:14px; color:var(--ink);
   font-family:'Inter',sans-serif;
 }
+.select-ciudad:disabled{ opacity:0.55; cursor:not-allowed; }
 
 .contador{
-  margin-left:auto; font-family:'IBM Plex Mono',monospace;
+  font-family:'IBM Plex Mono',monospace;
   font-size:12px; color:var(--muted);
 }
 
