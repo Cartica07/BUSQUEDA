@@ -1,5 +1,7 @@
 // ============================================================
 // FEED PRINCIPAL — index.html
+// VERSIÓN A — carga rápida + paginación
+// Basada directamente en la v11 funcional
 // ============================================================
 
 let todosLosAvisos = {};
@@ -8,6 +10,11 @@ let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
 let filtroTipo = 'perdido';
+
+const AVISOS_POR_PAGINA = 12;
+
+let paginaActual = 1;
+let cargaCompletaFinalizada = false;
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -21,227 +28,738 @@ const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
 
-// Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
-db.ref('avisos').on('value', (snapshot) => {
+// ------------------------------------------------------------
+// ESTILOS DE PAGINACIÓN
+// Se agregan desde JS para no tener que modificar style.css.
+// ------------------------------------------------------------
+
+const estiloPaginacion = document.createElement('style');
+
+estiloPaginacion.textContent = `
+  #paginacionAvisos {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 25px 0 35px;
+    flex-wrap: wrap;
+  }
+
+  #paginacionAvisos button {
+    border: 1px solid #ccc;
+    background: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  #paginacionAvisos button:hover:not(:disabled) {
+    background: #f1f1f1;
+  }
+
+  #paginacionAvisos button:disabled {
+    opacity: .45;
+    cursor: default;
+  }
+
+  #paginaActualAvisos {
+    font-weight: 600;
+    padding: 8px 10px;
+  }
+
+  #estadoCargaAvisos {
+    text-align: center;
+    margin: 12px 0;
+    font-size: 13px;
+    opacity: .7;
+  }
+`;
+
+document.head.appendChild(estiloPaginacion);
+
+// ------------------------------------------------------------
+// ELEMENTOS DE PAGINACIÓN
+// ------------------------------------------------------------
+
+const estadoCargaAvisos = document.createElement('div');
+estadoCargaAvisos.id = 'estadoCargaAvisos';
+
+const paginacionAvisos = document.createElement('div');
+paginacionAvisos.id = 'paginacionAvisos';
+
+const botonAnterior = document.createElement('button');
+botonAnterior.type = 'button';
+botonAnterior.textContent = '‹ Anterior';
+
+const paginaActualTexto = document.createElement('span');
+paginaActualTexto.id = 'paginaActualAvisos';
+
+const botonSiguiente = document.createElement('button');
+botonSiguiente.type = 'button';
+botonSiguiente.textContent = 'Siguiente ›';
+
+paginacionAvisos.appendChild(botonAnterior);
+paginacionAvisos.appendChild(paginaActualTexto);
+paginacionAvisos.appendChild(botonSiguiente);
+
+if (grid) {
+  grid.insertAdjacentElement('afterend', estadoCargaAvisos);
+  estadoCargaAvisos.insertAdjacentElement('afterend', paginacionAvisos);
+}
+
+// ------------------------------------------------------------
+// CARGA RÁPIDA INICIAL
+//
+// Primero solicitamos únicamente los 12 avisos más recientes.
+// Esto permite que la página empiece a mostrar contenido sin
+// esperar a descargar todos los avisos.
+//
+// Después se hace la carga completa en segundo plano para que
+// los filtros continúen funcionando igual que en la v11.
+// ------------------------------------------------------------
+
+const consultaInicial = db.ref('avisos')
+  .orderByChild('fecha')
+  .limitToLast(AVISOS_POR_PAGINA);
+
+consultaInicial.once('value')
+  .then(snapshot => {
+    todosLosAvisos = snapshot.val() || {};
+
+    cargaCompletaFinalizada = false;
+
+    actualizarSelectDepartamentos();
+    render();
+
+    estadoCargaAvisos.textContent = 'Cargando avisos restantes…';
+
+    // --------------------------------------------------------
+    // CARGA COMPLETA EN SEGUNDO PLANO
+    // --------------------------------------------------------
+
+    db.ref('avisos').once('value')
+      .then(snapshotCompleto => {
+        todosLosAvisos = snapshotCompleto.val() || {};
+        cargaCompletaFinalizada = true;
+
+        actualizarSelectDepartamentos();
+        render();
+
+        estadoCargaAvisos.textContent = '';
+      })
+      .catch(error => {
+        console.error('Error cargando avisos completos:', error);
+
+        // No borramos los avisos iniciales si falla la segunda carga.
+        estadoCargaAvisos.textContent =
+          'No se pudieron cargar todos los avisos. Mostrando los más recientes.';
+      });
+  })
+  .catch(error => {
+    console.error('Error cargando avisos iniciales:', error);
+
+    estadoCargaAvisos.textContent =
+      'No se pudieron cargar los avisos. Intenta recargar la página.';
+  });
+
+// ------------------------------------------------------------
+// ESCUCHA EN TIEMPO REAL
+//
+// Una vez que la carga inicial ya está disponible, mantenemos
+// sincronizados los avisos nuevos/modificados.
+//
+// No se utiliza .on('value') inmediatamente al entrar para
+// evitar que la primera pintura dependa de descargar todo.
+// ------------------------------------------------------------
+
+db.ref('avisos').on('value', snapshot => {
+  // Si todavía estamos esperando la carga completa, no
+  // reemplazamos los 12 avisos iniciales.
+  if (!cargaCompletaFinalizada) {
+    return;
+  }
+
   todosLosAvisos = snapshot.val() || {};
+
   actualizarSelectDepartamentos();
   render();
 });
 
+// ------------------------------------------------------------
+// FILTROS
+// ------------------------------------------------------------
+
 tabsCategoria.addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
+
   [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
+
   filtroCategoria = btn.dataset.cat;
+
+  paginaActual = 1;
   render();
 });
 
 selectDepartamento.addEventListener('change', () => {
   filtroDepartamento = selectDepartamento.value;
   poblarSelectCiudad(filtroDepartamento);
+
+  paginaActual = 1;
   render();
 });
 
 selectCiudad.addEventListener('change', () => {
   filtroCiudad = selectCiudad.value;
+
+  paginaActual = 1;
   render();
 });
 
-// Búsqueda por nombre: no distingue mayúsculas/minúsculas, ignora espacios
-// de sobra y hace coincidencia parcial (con poner una parte del nombre
-// alcanza, sin importar en qué lugar del nombre completo esté).
+// Búsqueda por nombre
 inputBuscar.addEventListener('input', () => {
   filtroNombre = normalizarTexto(inputBuscar.value);
+
+  paginaActual = 1;
   render();
 });
 
 tipoToggle.addEventListener('click', (e) => {
   const btn = e.target.closest('.tipo-btn');
   if (!btn) return;
+
   [...tipoToggle.children].forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+
   filtroTipo = btn.dataset.tipo;
+
+  paginaActual = 1;
   render();
 });
 
+// ------------------------------------------------------------
+// PAGINACIÓN
+// ------------------------------------------------------------
+
+botonAnterior.addEventListener('click', () => {
+  if (paginaActual <= 1) return;
+
+  paginaActual--;
+
+  render();
+
+  window.scrollTo({
+    top: grid.offsetTop - 80,
+    behavior: 'smooth'
+  });
+});
+
+botonSiguiente.addEventListener('click', () => {
+  const total = obtenerEntradasFiltradas().length;
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(total / AVISOS_POR_PAGINA)
+  );
+
+  if (paginaActual >= totalPaginas) return;
+
+  paginaActual++;
+
+  render();
+
+  window.scrollTo({
+    top: grid.offsetTop - 80,
+    behavior: 'smooth'
+  });
+});
+
+// ------------------------------------------------------------
+// DEPARTAMENTOS
+// ------------------------------------------------------------
+
 function actualizarSelectDepartamentos() {
   const departamentos = new Set();
-  Object.values(todosLosAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
+
+  Object.values(todosLosAvisos).forEach(a => {
+    if (a.departamento) {
+      departamentos.add(a.departamento);
+    }
+  });
+
   const actual = selectDepartamento.value;
-  selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
-    [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+
+  selectDepartamento.innerHTML =
+    '<option value="todas">Todos los departamentos</option>' +
+    [...departamentos]
+      .sort((a, b) => a.localeCompare(b, 'es'))
+      .map(d =>
+        `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`
+      )
+      .join('');
 
   const sigueExistiendo = [...departamentos].includes(actual);
-  selectDepartamento.value = sigueExistiendo ? actual : 'todas';
+
+  selectDepartamento.value =
+    sigueExistiendo ? actual : 'todas';
+
   filtroDepartamento = selectDepartamento.value;
-  // Si el departamento que tenía elegido ya no está disponible, el filtro
-  // de ciudad se recalcula desde cero (poblarSelectCiudad se encarga de
-  // resetearlo si hace falta).
+
   poblarSelectCiudad(filtroDepartamento);
 }
 
-// El filtro de ciudad depende del departamento elegido: usa el listado
-// completo de municipios de ese departamento (COLOMBIA_DATA, cargado desde
-// js/colombia-data.js), no solo los que ya tienen avisos publicados, para
-// que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
+// ------------------------------------------------------------
+// CIUDADES
+// ------------------------------------------------------------
+
 function poblarSelectCiudad(depto) {
-  if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
-    selectCiudad.innerHTML = '<option value="todas">Elige primero el departamento</option>';
+  if (
+    !depto ||
+    depto === 'todas' ||
+    !COLOMBIA_DATA[depto]
+  ) {
+    selectCiudad.innerHTML =
+      '<option value="todas">Elige primero el departamento</option>';
+
     selectCiudad.disabled = true;
     filtroCiudad = 'todas';
+
     return;
   }
 
   const actual = filtroCiudad;
   const municipios = COLOMBIA_DATA[depto];
-  selectCiudad.innerHTML = '<option value="todas">Todas las ciudades</option>' +
-    municipios.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+
+  selectCiudad.innerHTML =
+    '<option value="todas">Todas las ciudades</option>' +
+    municipios
+      .map(m =>
+        `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`
+      )
+      .join('');
+
   selectCiudad.disabled = false;
-  selectCiudad.value = municipios.includes(actual) ? actual : 'todas';
+
+  selectCiudad.value =
+    municipios.includes(actual) ? actual : 'todas';
+
   filtroCiudad = selectCiudad.value;
 }
 
-// Un aviso sin campo "tipo" (publicaciones viejas) se trata como "perdido",
-// que era el único tipo que existía antes de agregar esta división.
+// ------------------------------------------------------------
+// TIPO
+// ------------------------------------------------------------
+
 function tipoDe(aviso) {
-  return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
+  return aviso.tipo === 'encontrado'
+    ? 'encontrado'
+    : 'perdido';
 }
 
-// Clasifica cada aviso en una de las 3 pestañas del filtro superior:
-// 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
-// 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
-//                 esté o no ya entregado/reclamado.
-// 'resuelto'   -> era un aviso de "perdido" y su propio dueño/familia avisó
-//                 que ya apareció (no interviene ningún tercero).
+// ------------------------------------------------------------
+// CATEGORÍA
+// ------------------------------------------------------------
+
 function categoriaFiltro(aviso) {
-  if (tipoDe(aviso) === 'encontrado') return 'encontrado';
-  return aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
+  if (tipoDe(aviso) === 'encontrado') {
+    return 'encontrado';
+  }
+
+  return aviso.estado === 'encontrado'
+    ? 'resuelto'
+    : 'perdido';
 }
+
+// ------------------------------------------------------------
+// OBTENER AVISOS FILTRADOS
+// ------------------------------------------------------------
+
+function obtenerEntradasFiltradas() {
+
+  const coincideFiltrosBase = ([id, a]) =>
+    (filtroCategoria === 'todas' ||
+      a.categoria === filtroCategoria) &&
+
+    (filtroDepartamento === 'todas' ||
+      a.departamento === filtroDepartamento) &&
+
+    (filtroCiudad === 'todas' ||
+      a.ciudad === filtroCiudad) &&
+
+    (!filtroNombre ||
+      normalizarTexto(a.nombre).includes(filtroNombre));
+
+  const todasLasCoincidencias =
+    Object.entries(todosLosAvisos)
+      .filter(coincideFiltrosBase);
+
+  return todasLasCoincidencias
+    .filter(([id, a]) =>
+      categoriaFiltro(a) === filtroTipo
+    )
+    .sort((a, b) =>
+      (b[1].fecha || 0) - (a[1].fecha || 0)
+    );
+}
+
+// ------------------------------------------------------------
+// RENDER
+// ------------------------------------------------------------
 
 function render() {
+
   const coincideFiltrosBase = ([id, a]) =>
-    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
-    (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
-    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
-    (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
+    (filtroCategoria === 'todas' ||
+      a.categoria === filtroCategoria) &&
 
-  const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
+    (filtroDepartamento === 'todas' ||
+      a.departamento === filtroDepartamento) &&
 
-  // Los contadores de "Perdidos" / "Encontrados por otras personas" / "Ya
-  // encontrado por los dueños" reflejan los filtros de categoría, ubicación
-  // y nombre que estén activos, para que la persona sepa cuántos resultados
-  // hay en cada pestaña antes de elegir una.
-  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
-  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
-  contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
+    (filtroCiudad === 'todas' ||
+      a.ciudad === filtroCiudad) &&
+
+    (!filtroNombre ||
+      normalizarTexto(a.nombre).includes(filtroNombre));
+
+  const todasLasCoincidencias =
+    Object.entries(todosLosAvisos)
+      .filter(coincideFiltrosBase);
+
+  // ----------------------------------------------------------
+  // CONTADORES
+  // Se mantienen exactamente como en v11.
+  // ----------------------------------------------------------
+
+  contadorPerdidos.textContent =
+    todasLasCoincidencias.filter(
+      ([id, a]) => categoriaFiltro(a) === 'perdido'
+    ).length;
+
+  contadorEncontrados.textContent =
+    todasLasCoincidencias.filter(
+      ([id, a]) => categoriaFiltro(a) === 'encontrado'
+    ).length;
+
+  contadorResueltos.textContent =
+    todasLasCoincidencias.filter(
+      ([id, a]) => categoriaFiltro(a) === 'resuelto'
+    ).length;
+
+  // ----------------------------------------------------------
+  // AVISOS
+  // ----------------------------------------------------------
 
   const entradas = todasLasCoincidencias
-    .filter(([id, a]) => categoriaFiltro(a) === filtroTipo)
-    .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
+    .filter(([id, a]) =>
+      categoriaFiltro(a) === filtroTipo
+    )
+    .sort((a, b) =>
+      (b[1].fecha || 0) - (a[1].fecha || 0)
+    );
 
-  contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
+  const totalAvisos = entradas.length;
+
+  contador.textContent =
+    totalAvisos +
+    (totalAvisos === 1 ? ' aviso' : ' avisos');
+
+  // ----------------------------------------------------------
+  // AJUSTAR PÁGINA SI QUEDÓ FUERA DE RANGO
+  // ----------------------------------------------------------
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(totalAvisos / AVISOS_POR_PAGINA)
+  );
+
+  if (paginaActual > totalPaginas) {
+    paginaActual = totalPaginas;
+  }
+
+  // ----------------------------------------------------------
+  // AVISOS DE LA PÁGINA ACTUAL
+  // ----------------------------------------------------------
+
+  const inicio =
+    (paginaActual - 1) * AVISOS_POR_PAGINA;
+
+  const avisosPagina =
+    entradas.slice(
+      inicio,
+      inicio + AVISOS_POR_PAGINA
+    );
+
   grid.innerHTML = '';
 
-  if (entradas.length === 0) {
+  if (avisosPagina.length === 0) {
     emptyState.style.display = 'block';
-    return;
-  }
-  emptyState.style.display = 'none';
+  } else {
+    emptyState.style.display = 'none';
 
-  entradas.forEach(([id, aviso]) => {
-    grid.appendChild(crearCard(id, aviso));
-  });
+    avisosPagina.forEach(([id, aviso]) => {
+      grid.appendChild(crearCard(id, aviso));
+    });
+  }
+
+  // ----------------------------------------------------------
+  // PAGINACIÓN
+  // ----------------------------------------------------------
+
+  actualizarPaginacion(
+    totalAvisos,
+    totalPaginas
+  );
 }
 
+// ------------------------------------------------------------
+// PAGINACIÓN UI
+// ------------------------------------------------------------
+
+function actualizarPaginacion(
+  totalAvisos,
+  totalPaginas
+) {
+  if (totalAvisos <= AVISOS_POR_PAGINA) {
+    paginacionAvisos.style.display = 'none';
+    return;
+  }
+
+  paginacionAvisos.style.display = 'flex';
+
+  paginaActualTexto.textContent =
+    `Página ${paginaActual} de ${totalPaginas}`;
+
+  botonAnterior.disabled =
+    paginaActual <= 1;
+
+  botonSiguiente.disabled =
+    paginaActual >= totalPaginas;
+}
+
+// ------------------------------------------------------------
+// CREAR TARJETA
+// ------------------------------------------------------------
+
 function crearCard(id, aviso) {
+
   const a = document.createElement('a');
+
   a.href = `aviso.html?id=${id}`;
   a.className = 'card';
 
-  const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
-  const { stampClass, stampTexto } = calcularSello(aviso);
+  const numComentarios =
+    aviso.comentarios
+      ? Object.keys(aviso.comentarios).length
+      : 0;
 
-  // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
-  // dueño/familia marcó como resuelto. Ahora vive en su propia pestaña
-  // ("Ya encontrado por los dueños"), para que no se confunda con el sello
-  // rojo "ENCONTRADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
-  const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
+  const {
+    stampClass,
+    stampTexto
+  } = calcularSello(aviso);
+
+  const yaAparecioPorSuDueno =
+    tipoDe(aviso) === 'perdido' &&
+    aviso.estado === 'encontrado';
 
   a.innerHTML = `
     <div class="card-media">
+
       <div class="tape"></div>
-      <div class="stamp ${stampClass}">${stampTexto}</div>
+
+      <div class="stamp ${stampClass}">
+        ${stampTexto}
+      </div>
+
       <div class="media-wrap">
-        ${aviso.imagenBase64
-          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
-        : `<div class="foto sin-foto">Sin foto</div>`}
-        ${yaAparecioPorSuDueno ? `<div class="ribbon-aparecio">Ya apareció</div>` : ''}
+
+        ${
+          aviso.imagenBase64
+            ? `
+              <img
+                class="foto"
+                src="${aviso.imagenBase64}"
+                alt="Foto de ${escapeHtml(aviso.nombre || '')}"
+                loading="lazy"
+                decoding="async"
+              >
+            `
+            : `
+              <div class="foto sin-foto">
+                Sin foto
+              </div>
+            `
+        }
+
+        ${
+          yaAparecioPorSuDueno
+            ? `<div class="ribbon-aparecio">Ya apareció</div>`
+            : ''
+        }
+
       </div>
-    <div class="body">
-      <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
-      <div class="meta">
-        ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
-        <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
+
+      <div class="body">
+
+        <div class="nombre">
+          ${escapeHtml(aviso.nombre || 'Sin nombre')}
+        </div>
+
+        <div class="meta">
+
+          ${
+            aviso.edad
+              ? `<span>${escapeHtml(aviso.edad)}</span>`
+              : ''
+          }
+
+          <span class="mono">
+            ${
+              aviso.categoria === 'mascota'
+                ? 'MASCOTA'
+                : 'PERSONA'
+            }
+          </span>
+
+        </div>
+
+        ${
+          aviso.descripcion
+            ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>`
+            : ''
+        }
+
+        <div class="foot">
+
+          <span class="ciudad">
+            📍 ${escapeHtml(lugarTexto(aviso))}
+          </span>
+
+          <span class="comentarios-count">
+            💬 ${numComentarios}
+          </span>
+
+        </div>
+
+        <div class="btn-contactar">
+          Contactar
+        </div>
+
       </div>
-      ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
-      <div class="foot">
-        <span class="ciudad">📍 ${escapeHtml(lugarTexto(aviso))}</span>
-        <span class="comentarios-count">💬 ${numComentarios}</span>
-      </div>
-      <div class="btn-contactar">Contactar</div>
+
     </div>
   `;
+
   return a;
 }
 
-// Calcula el texto y color del sello según categoría (persona/mascota),
-// tipo (perdido = lo estoy buscando / encontrado = lo tengo yo) y estado
-// (buscando = sigue activo / encontrado = ya se resolvió el caso).
-// aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
+// ------------------------------------------------------------
+// SELLO
+// ------------------------------------------------------------
+
 function calcularSello(aviso) {
-  const esMascota = aviso.categoria === 'mascota';
-  const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
-  const resuelto = aviso.estado === 'encontrado';
+
+  const esMascota =
+    aviso.categoria === 'mascota';
+
+  const esTipoEncontrado =
+    tipoDe(aviso) === 'encontrado';
+
+  const resuelto =
+    aviso.estado === 'encontrado';
 
   if (esTipoEncontrado) {
+
     if (resuelto) {
-      return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
+      return {
+        stampClass: 'encontrado',
+        stampTexto:
+          esMascota
+            ? 'YA ENTREGADO'
+            : 'YA ENTREGADO/A'
+      };
     }
-    // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
-    // se note que está pendiente de que su dueño lo reclame.
-    return { stampClass: 'pendiente', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+
+    return {
+      stampClass: 'pendiente',
+      stampTexto:
+        esMascota
+          ? 'ENCONTRADO'
+          : 'ENCONTRADO/A'
+    };
   }
 
   if (resuelto) {
-    return { stampClass: 'encontrado', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+    return {
+      stampClass: 'encontrado',
+      stampTexto:
+        esMascota
+          ? 'ENCONTRADO'
+          : 'ENCONTRADO/A'
+    };
   }
-  return { stampClass: esMascota ? 'mascota' : 'persona', stampTexto: esMascota ? 'PERDIDO' : 'SE BUSCA' };
+
+  return {
+    stampClass:
+      esMascota
+        ? 'mascota'
+        : 'persona',
+
+    stampTexto:
+      esMascota
+        ? 'PERDIDO'
+        : 'SE BUSCA'
+  };
 }
 
-// Arma el texto de ubicación combinando ciudad/municipio, sector y
-// departamento, sin dejar separadores sueltos cuando algún dato falta
-// (varios campos son opcionales desde que se publica el aviso).
+// ------------------------------------------------------------
+// UBICACIÓN
+// ------------------------------------------------------------
+
 function lugarTexto(aviso) {
+
   const partes = [];
-  if (aviso.ciudad) partes.push(aviso.ciudad);
-  if (aviso.sector) partes.push(aviso.sector);
-  let texto = partes.length ? partes.join(' · ') : 'Ubicación no especificada';
-  if (aviso.departamento) texto += ` (${aviso.departamento})`;
+
+  if (aviso.ciudad) {
+    partes.push(aviso.ciudad);
+  }
+
+  if (aviso.sector) {
+    partes.push(aviso.sector);
+  }
+
+  let texto =
+    partes.length
+      ? partes.join(' · ')
+      : 'Ubicación no especificada';
+
+  if (aviso.departamento) {
+    texto += ` (${aviso.departamento})`;
+  }
+
   return texto;
 }
 
+// ------------------------------------------------------------
+// SEGURIDAD HTML
+// ------------------------------------------------------------
+
 function escapeHtml(str) {
-  const div = document.createElement('div');
+
+  const div =
+    document.createElement('div');
+
   div.textContent = str;
+
   return div.innerHTML;
 }
 
-// Deja el texto listo para comparar: sin espacios de sobra al inicio/final,
-// todo en minúsculas y sin tildes (así "Sara" y "SARA " o "sára" matchean
-// igual). Se usa tanto para lo que escribe la persona como para el nombre
-// guardado en cada aviso.
+// ------------------------------------------------------------
+// NORMALIZAR TEXTO
+// ------------------------------------------------------------
+
 function normalizarTexto(str) {
+
   return (str || '')
     .toString()
     .trim()
