@@ -1,15 +1,14 @@
-// name=js/main.js
-// FEED PRINCIPAL — versión robusta para "Cargar más" opcional
+// ============================================================
+// FEED PRINCIPAL — index.html
+// ============================================================
 
-let loadedAvisos = {};
-let loadedOrder = [];
+let todosLosAvisos = {};
 let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
 let filtroTipo = 'perdido';
 
-const PAGE_SIZE = 12;
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const contador = document.getElementById('contador');
@@ -22,223 +21,78 @@ const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
 
-let btnCargarMas = document.getElementById('cargarMas'); // puede ser null
-let loadingIndicator = document.getElementById('loadingIndicator'); // puede ser null
-
-let loading = false;
-let noMore = false;
-let lastLoadedFecha = null;
-let latestFecha = 0;
-
-// Inicial
-document.addEventListener('DOMContentLoaded', () => {
-  initControls();
-  limpiarGridMensaje();
-  cargarPaginaInicial();
-  setupRealtimeNewItems();
+// Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
+db.ref('avisos').on('value', (snapshot) => {
+  todosLosAvisos = snapshot.val() || {};
+  actualizarSelectDepartamentos();
+  render();
 });
 
-function initControls() {
-  if (tabsCategoria) {
-    tabsCategoria.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tab');
-      if (!btn) return;
-      [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      filtroCategoria = btn.dataset.cat;
-      render();
-    });
-  }
+tabsCategoria.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  filtroCategoria = btn.dataset.cat;
+  render();
+});
 
-  if (selectDepartamento) {
-    selectDepartamento.addEventListener('change', () => {
-      filtroDepartamento = selectDepartamento.value;
-      poblarSelectCiudad(filtroDepartamento);
-      render();
-    });
-  }
+selectDepartamento.addEventListener('change', () => {
+  filtroDepartamento = selectDepartamento.value;
+  poblarSelectCiudad(filtroDepartamento);
+  render();
+});
 
-  if (selectCiudad) {
-    selectCiudad.addEventListener('change', () => {
-      filtroCiudad = selectCiudad.value;
-      render();
-    });
-  }
+selectCiudad.addEventListener('change', () => {
+  filtroCiudad = selectCiudad.value;
+  render();
+});
 
-  if (inputBuscar) {
-    inputBuscar.addEventListener('input', () => {
-      filtroNombre = normalizarTexto(inputBuscar.value);
-      render();
-    });
-  }
+// Búsqueda por nombre: no distingue mayúsculas/minúsculas, ignora espacios
+// de sobra y hace coincidencia parcial (con poner una parte del nombre
+// alcanza, sin importar en qué lugar del nombre completo esté).
+inputBuscar.addEventListener('input', () => {
+  filtroNombre = normalizarTexto(inputBuscar.value);
+  render();
+});
 
-  if (tipoToggle) {
-    tipoToggle.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tipo-btn');
-      if (!btn) return;
-      [...tipoToggle.children].forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      filtroTipo = btn.dataset.tipo;
-      render();
-    });
-  }
-
-  // El botón puede no existir si no reemplazaste index.html; comprobar antes.
-  if (btnCargarMas) {
-    btnCargarMas.addEventListener('click', () => {
-      if (!loading && !noMore) cargarPaginaSiguiente();
-    });
-  }
-}
-
-function cargarPaginaInicial() {
-  loading = true;
-  showLoading(true);
-  // Si `db` no existe por algún motivo, logueamos y salimos limpiamente
-  if (typeof db === 'undefined' || !db.ref) {
-    console.error('firebase db no está disponible (db undefined). Revisa js/firebase-config.js');
-    showLoading(false);
-    loading = false;
-    // quitamos mensaje de carga para no dejar la UI colgada
-    limpiarGridMensaje();
-    return;
-  }
-
-  db.ref('avisos').orderByChild('fecha').limitToLast(PAGE_SIZE).once('value')
-    .then(snapshot => {
-      const val = snapshot.val() || {};
-      const items = Object.entries(val);
-      const arr = items.map(([id, a]) => ({ id, a }));
-      arr.sort((x, y) => (y.a.fecha || 0) - (x.a.fecha || 0)); // descendente
-
-      if (arr.length === 0) {
-        loadedAvisos = {};
-        loadedOrder = [];
-        actualizarSelectDepartamentos();
-        render();
-        noMore = true;
-        if (btnCargarMas) btnCargarMas.style.display = 'none';
-      } else {
-        arr.forEach(({ id, a }) => {
-          loadedAvisos[id] = a;
-          loadedOrder.push(id);
-        });
-        lastLoadedFecha = arr[arr.length - 1].a.fecha || 0;
-        latestFecha = Math.max(latestFecha, arr[0].a.fecha || 0);
-        if (arr.length < PAGE_SIZE) {
-          noMore = true;
-          if (btnCargarMas) btnCargarMas.style.display = 'none';
-        } else {
-          noMore = false;
-          if (btnCargarMas) btnCargarMas.style.display = 'inline-block';
-        }
-        actualizarSelectDepartamentos();
-        render();
-      }
-    })
-    .catch(err => {
-      console.error('Error cargando avisos iniciales', err);
-    })
-    .finally(() => {
-      loading = false;
-      showLoading(false);
-    });
-}
-
-function cargarPaginaSiguiente() {
-  if (loading || noMore) return;
-  loading = true;
-  showLoading(true);
-
-  const endAtValue = (typeof lastLoadedFecha === 'number' && lastLoadedFecha > 0) ? lastLoadedFecha - 1 : lastLoadedFecha;
-  let query = db.ref('avisos').orderByChild('fecha');
-  if (endAtValue || endAtValue === 0) query = query.endAt(endAtValue);
-  query = query.limitToLast(PAGE_SIZE);
-
-  query.once('value')
-    .then(snapshot => {
-      const val = snapshot.val() || {};
-      const items = Object.entries(val);
-      if (!items.length) {
-        noMore = true;
-        if (btnCargarMas) btnCargarMas.style.display = 'none';
-        return;
-      }
-      const arr = items.map(([id, a]) => ({ id, a }));
-      arr.sort((x, y) => (y.a.fecha || 0) - (x.a.fecha || 0));
-      const nuevos = arr.filter(({ id }) => !loadedAvisos.hasOwnProperty(id));
-      if (nuevos.length === 0) {
-        noMore = true;
-        if (btnCargarMas) btnCargarMas.style.display = 'none';
-        return;
-      }
-      nuevos.forEach(({ id, a }) => {
-        loadedAvisos[id] = a;
-        loadedOrder.push(id);
-      });
-      lastLoadedFecha = arr[arr.length - 1].a.fecha || lastLoadedFecha;
-      if (arr.length < PAGE_SIZE) {
-        noMore = true;
-        if (btnCargarMas) btnCargarMas.style.display = 'none';
-      } else {
-        if (btnCargarMas) btnCargarMas.style.display = 'inline-block';
-      }
-      actualizarSelectDepartamentos();
-      render();
-    })
-    .catch(err => {
-      console.error('Error cargando más avisos', err);
-    })
-    .finally(() => {
-      loading = false;
-      showLoading(false);
-    });
-}
-
-function setupRealtimeNewItems() {
-  if (typeof db === 'undefined' || !db.ref) return;
-  db.ref('avisos').orderByChild('fecha').limitToLast(1).on('child_added', snapshot => {
-    const id = snapshot.key;
-    const a = snapshot.val();
-    if (!a) return;
-    const fecha = a.fecha || 0;
-    if (fecha > latestFecha) {
-      if (!loadedAvisos.hasOwnProperty(id)) {
-        loadedAvisos[id] = a;
-        loadedOrder.unshift(id);
-        latestFecha = Math.max(latestFecha, fecha);
-        if (!lastLoadedFecha) lastLoadedFecha = fecha;
-        actualizarSelectDepartamentos();
-        render();
-      }
-    }
-  });
-}
+tipoToggle.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tipo-btn');
+  if (!btn) return;
+  [...tipoToggle.children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filtroTipo = btn.dataset.tipo;
+  render();
+});
 
 function actualizarSelectDepartamentos() {
   const departamentos = new Set();
-  Object.values(loadedAvisos).forEach(a => { if (a && a.departamento) departamentos.add(a.departamento); });
-  const actual = selectDepartamento ? selectDepartamento.value : 'todas';
-  if (selectDepartamento) {
-    selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
-      [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-    const sigueExistiendo = [...departamentos].includes(actual);
-    selectDepartamento.value = sigueExistiendo ? actual : 'todas';
-    filtroDepartamento = selectDepartamento.value;
-  } else {
-    filtroDepartamento = 'todas';
-  }
-  if (selectDepartamento) poblarSelectCiudad(filtroDepartamento);
+  Object.values(todosLosAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
+  const actual = selectDepartamento.value;
+  selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
+    [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+
+  const sigueExistiendo = [...departamentos].includes(actual);
+  selectDepartamento.value = sigueExistiendo ? actual : 'todas';
+  filtroDepartamento = selectDepartamento.value;
+  // Si el departamento que tenía elegido ya no está disponible, el filtro
+  // de ciudad se recalcula desde cero (poblarSelectCiudad se encarga de
+  // resetearlo si hace falta).
+  poblarSelectCiudad(filtroDepartamento);
 }
 
+// El filtro de ciudad depende del departamento elegido: usa el listado
+// completo de municipios de ese departamento (COLOMBIA_DATA, cargado desde
+// js/colombia-data.js), no solo los que ya tienen avisos publicados, para
+// que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
 function poblarSelectCiudad(depto) {
-  if (!selectCiudad) { filtroCiudad = 'todas'; return; }
-  if (!depto || depto === 'todas' || !COLOMBIA_DATA || !COLOMBIA_DATA[depto]) {
+  if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
     selectCiudad.innerHTML = '<option value="todas">Elige primero el departamento</option>';
     selectCiudad.disabled = true;
     filtroCiudad = 'todas';
     return;
   }
+
   const actual = filtroCiudad;
   const municipios = COLOMBIA_DATA[depto];
   selectCiudad.innerHTML = '<option value="todas">Todas las ciudades</option>' +
@@ -248,41 +102,52 @@ function poblarSelectCiudad(depto) {
   filtroCiudad = selectCiudad.value;
 }
 
+// Un aviso sin campo "tipo" (publicaciones viejas) se trata como "perdido",
+// que era el único tipo que existía antes de agregar esta división.
 function tipoDe(aviso) {
-  return aviso && aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
+  return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
+// Clasifica cada aviso en una de las 3 pestañas del filtro superior:
+// 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
+// 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
+//                 esté o no ya entregado/reclamado.
+// 'resuelto'   -> era un aviso de "perdido" y su propio dueño/familia avisó
+//                 que ya apareció (no interviene ningún tercero).
 function categoriaFiltro(aviso) {
   if (tipoDe(aviso) === 'encontrado') return 'encontrado';
-  return aviso && aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
+  return aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
 }
 
 function render() {
   const coincideFiltrosBase = ([id, a]) =>
-    (filtroCategoria === 'todas' || (a && a.categoria === filtroCategoria)) &&
-    (filtroDepartamento === 'todas' || (a && a.departamento === filtroDepartamento)) &&
-    (filtroCiudad === 'todas' || (a && a.ciudad === filtroCiudad)) &&
-    (!filtroNombre || (a && normalizarTexto(a.nombre).includes(filtroNombre)));
+    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
+    (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
+    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
+    (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
 
-  const todasLasCoincidencias = Object.entries(loadedAvisos).filter(coincideFiltrosBase);
+  const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
 
-  if (contadorPerdidos) contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
-  if (contadorEncontrados) contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
-  if (contadorResueltos) contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
+  // Los contadores de "Perdidos" / "Encontrados por otras personas" / "Ya
+  // encontrado por los dueños" reflejan los filtros de categoría, ubicación
+  // y nombre que estén activos, para que la persona sepa cuántos resultados
+  // hay en cada pestaña antes de elegir una.
+  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
+  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
+  contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
 
-  const entradas = loadedOrder
-    .map(id => [id, loadedAvisos[id]])
-    .filter(([id, a]) => a && coincideFiltrosBase([id, a]) && categoriaFiltro(a) === filtroTipo);
+  const entradas = todasLasCoincidencias
+    .filter(([id, a]) => categoriaFiltro(a) === filtroTipo)
+    .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
-  if (contador) contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
-  if (!grid) return;
+  contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
   grid.innerHTML = '';
 
   if (entradas.length === 0) {
-    if (emptyState) emptyState.style.display = 'block';
+    emptyState.style.display = 'block';
     return;
   }
-  if (emptyState) emptyState.style.display = 'none';
+  emptyState.style.display = 'none';
 
   entradas.forEach(([id, aviso]) => {
     grid.appendChild(crearCard(id, aviso));
@@ -294,28 +159,32 @@ function crearCard(id, aviso) {
   a.href = `aviso.html?id=${id}`;
   a.className = 'card';
 
-  const numComentarios = aviso && aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
+  const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
 
-  const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso && aviso.estado === 'encontrado';
+  // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
+  // dueño/familia marcó como resuelto. Ahora vive en su propia pestaña
+  // ("Ya encontrado por los dueños"), para que no se confunda con el sello
+  // rojo "ENCONTRADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
+  const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
 
   a.innerHTML = `
     <div class="card-media">
       <div class="tape"></div>
       <div class="stamp ${stampClass}">${stampTexto}</div>
       <div class="media-wrap">
-        ${aviso && aviso.imagenBase64
-          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}" loading="lazy">`
+        ${aviso.imagenBase64
+          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
         : `<div class="foto sin-foto">Sin foto</div>`}
         ${yaAparecioPorSuDueno ? `<div class="ribbon-aparecio">Ya apareció</div>` : ''}
       </div>
     <div class="body">
-      <div class="nombre">${escapeHtml((aviso && aviso.nombre) || 'Sin nombre')}</div>
+      <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
       <div class="meta">
-        ${aviso && aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
-        <span class="mono">${aviso && aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
+        ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
+        <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
       </div>
-      ${aviso && aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
+      ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
       <div class="foot">
         <span class="ciudad">📍 ${escapeHtml(lugarTexto(aviso))}</span>
         <span class="comentarios-count">💬 ${numComentarios}</span>
@@ -326,45 +195,57 @@ function crearCard(id, aviso) {
   return a;
 }
 
+// Calcula el texto y color del sello según categoría (persona/mascota),
+// tipo (perdido = lo estoy buscando / encontrado = lo tengo yo) y estado
+// (buscando = sigue activo / encontrado = ya se resolvió el caso).
+// aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
 function calcularSello(aviso) {
-  const esMascota = aviso && aviso.categoria === 'mascota';
+  const esMascota = aviso.categoria === 'mascota';
   const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
-  const resuelto = aviso && aviso.estado === 'encontrado';
+  const resuelto = aviso.estado === 'encontrado';
 
   if (esTipoEncontrado) {
-    if (resuelto) return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
+    if (resuelto) {
+      return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
+    }
+    // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
+    // se note que está pendiente de que su dueño lo reclame.
     return { stampClass: 'pendiente', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
   }
-  if (resuelto) return { stampClass: 'encontrado', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+
+  if (resuelto) {
+    return { stampClass: 'encontrado', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+  }
   return { stampClass: esMascota ? 'mascota' : 'persona', stampTexto: esMascota ? 'PERDIDO' : 'SE BUSCA' };
 }
 
+// Arma el texto de ubicación combinando ciudad/municipio, sector y
+// departamento, sin dejar separadores sueltos cuando algún dato falta
+// (varios campos son opcionales desde que se publica el aviso).
 function lugarTexto(aviso) {
   const partes = [];
-  if (aviso && aviso.ciudad) partes.push(aviso.ciudad);
-  if (aviso && aviso.sector) partes.push(aviso.sector);
+  if (aviso.ciudad) partes.push(aviso.ciudad);
+  if (aviso.sector) partes.push(aviso.sector);
   let texto = partes.length ? partes.join(' · ') : 'Ubicación no especificada';
-  if (aviso && aviso.departamento) texto += ` (${aviso.departamento})`;
+  if (aviso.departamento) texto += ` (${aviso.departamento})`;
   return texto;
 }
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str || '';
+  div.textContent = str;
   return div.innerHTML;
 }
 
+// Deja el texto listo para comparar: sin espacios de sobra al inicio/final,
+// todo en minúsculas y sin tildes (así "Sara" y "SARA " o "sára" matchean
+// igual). Se usa tanto para lo que escribe la persona como para el nombre
+// guardado en cada aviso.
 function normalizarTexto(str) {
-  return (str || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function showLoading(show) {
-  if (loadingIndicator) loadingIndicator.style.display = show ? 'block' : 'none';
-  if (btnCargarMas) btnCargarMas.disabled = !!show;
-}
-
-function limpiarGridMensaje() {
-  if (!grid) return;
-  const p = grid.querySelector('.loading-msg');
-  if (p) p.remove();
+  return (str || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
