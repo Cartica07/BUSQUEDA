@@ -52,7 +52,7 @@ function renderAviso(aviso) {
         <div class="meta">
           ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
           <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
-          <span>📍 ${escapeHtml(aviso.ciudad)}${aviso.sector ? ' · ' + escapeHtml(aviso.sector) : ''}</span>
+          ${(aviso.ciudad || aviso.sector || aviso.departamento) ? `<span>📍 ${escapeHtml(lugarTexto(aviso))}</span>` : ''}
           <span class="mono">${formatoFecha(aviso.fecha)}</span>
         </div>
         ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
@@ -124,6 +124,17 @@ function formatoFecha(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) + ' · ' +
          d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Arma el texto de ubicación combinando ciudad/municipio, sector y
+// departamento, sin dejar separadores sueltos cuando algún dato falta.
+function lugarTexto(aviso) {
+  const partes = [];
+  if (aviso.ciudad) partes.push(aviso.ciudad);
+  if (aviso.sector) partes.push(aviso.sector);
+  let texto = partes.join(' · ');
+  if (aviso.departamento) texto += texto ? ` (${aviso.departamento})` : aviso.departamento;
+  return texto;
 }
 
 function escapeHtml(str) {
