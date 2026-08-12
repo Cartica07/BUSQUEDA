@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel de administración — Se Busca</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Panel de administración</span>
+    </div>
+  </a>
+  <button class="btn-publicar" id="btnLogout" style="display:none;">Cerrar sesión</button>
+</header>
+
+<!-- ---------- Login ---------- -->
+<div class="admin-login-wrap" id="loginWrap">
+  <div class="admin-login-box">
+    <h1>Acceso de administración</h1>
+    <p class="lead">Esta sección es solo para quien creó y administra la página. Iniciá sesión con la cuenta configurada en Firebase.</p>
+    <div class="error-msg" id="loginError"></div>
+    <form id="formLogin">
+      <div class="field">
+        <label>Correo</label>
+        <input type="email" id="loginEmail" placeholder="tu@correo.com" required>
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn-submit" id="btnLogin">Iniciar sesión</button>
+    </form>
+  </div>
+</div>
+
+<!-- ---------- Dashboard (oculto hasta iniciar sesión) ---------- -->
+<div class="admin-dash" id="dashWrap" style="display:none;">
+
+  <div class="admin-stats" id="adminStats"></div>
+
+  <div class="filters">
+    <div class="tab-group" id="tabsCategoriaAdmin">
+      <button class="tab active" data-cat="todas">Todas</button>
+      <button class="tab" data-cat="persona">Personas</button>
+      <button class="tab" data-cat="mascota">Mascotas</button>
+    </div>
+    <select class="select-ciudad" id="selectEstadoAdmin">
+      <option value="todas">Todos los estados</option>
+      <option value="buscando">Buscando</option>
+      <option value="encontrado">Encontrado</option>
+    </select>
+    <input type="text" id="buscarAdmin" class="admin-search" placeholder="Buscar por nombre...">
+  </div>
+
+  <div class="admin-list" id="adminList"></div>
+
+  <div class="empty-state" id="adminEmptyState" style="display:none">
+    <div class="display">No hay avisos que coincidan</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
