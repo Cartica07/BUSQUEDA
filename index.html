@@ -6,10 +6,6 @@
 <title>Se Busca — Avisos de personas y mascotas perdidas</title>
 <meta name="description" content="Publicá o buscá avisos de personas y mascotas perdidas tras el terremoto en Colombia. Contactá directo por WhatsApp.">
 <link rel="stylesheet" href="css/style.css">
-<script>
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
-<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -18,7 +14,7 @@
     <div class="mark"><img src="img/colombia-flag.png" alt="Bandera de Colombia" class="mark-flag"></div>
     <div>
       <span class="name">Se Busca</span>
-      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
+      <span class="sub">Colombia<br>Terremoto 10 ago 2026</span>
     </div>
   </a>
   <a href="crear.html" class="btn-publicar">+ Publicar aviso</a>
@@ -42,7 +38,6 @@
       <option value="todas">Elige primero el departamento</option>
     </select>
   </div>
-  <span class="contador" id="contador"></span>
 </div>
 
 <div class="grid" id="grid"></div>
@@ -51,6 +46,8 @@
   <div class="display">Todavía no hay avisos acá</div>
   <p>Sé la primera persona en publicar uno.</p>
 </div>
+
+<span class="contador contador-bottom" id="contador"></span>
 
 <footer>
   Hecho por IG: <a href="https://instagram.com/alexander.cv7" target="_blank" rel="noopener">alexander.cv7</a>, para la comunidad. Si necesitas ayuda con la creación de un aviso u otra cuestión no dudes en contactarme.
