@@ -4,18 +4,18 @@
 
 let todosLosAvisos = {};
 let filtroCategoria = 'todas';
-let filtroCiudad = 'todas';
+let filtroDepartamento = 'todas';
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const contador = document.getElementById('contador');
-const selectCiudad = document.getElementById('selectCiudad');
+const selectDepartamento = document.getElementById('selectDepartamento');
 const tabsCategoria = document.getElementById('tabsCategoria');
 
 // Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
 db.ref('avisos').on('value', (snapshot) => {
   todosLosAvisos = snapshot.val() || {};
-  actualizarSelectCiudades();
+  actualizarSelectDepartamentos();
   render();
 });
 
@@ -28,24 +28,24 @@ tabsCategoria.addEventListener('click', (e) => {
   render();
 });
 
-selectCiudad.addEventListener('change', () => {
-  filtroCiudad = selectCiudad.value;
+selectDepartamento.addEventListener('change', () => {
+  filtroDepartamento = selectDepartamento.value;
   render();
 });
 
-function actualizarSelectCiudades() {
-  const ciudades = new Set();
-  Object.values(todosLosAvisos).forEach(a => { if (a.ciudad) ciudades.add(a.ciudad); });
-  const actual = selectCiudad.value;
-  selectCiudad.innerHTML = '<option value="todas">Todas las ciudades</option>' +
-    [...ciudades].sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-  selectCiudad.value = [...ciudades].includes(actual) ? actual : 'todas';
+function actualizarSelectDepartamentos() {
+  const departamentos = new Set();
+  Object.values(todosLosAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
+  const actual = selectDepartamento.value;
+  selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
+    [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  selectDepartamento.value = [...departamentos].includes(actual) ? actual : 'todas';
 }
 
 function render() {
   const entradas = Object.entries(todosLosAvisos)
     .filter(([id, a]) => filtroCategoria === 'todas' || a.categoria === filtroCategoria)
-    .filter(([id, a]) => filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
+    .filter(([id, a]) => filtroDepartamento === 'todas' || a.departamento === filtroDepartamento)
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
@@ -87,12 +87,24 @@ function crearCard(id, aviso) {
       </div>
       ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
       <div class="foot">
-        <span class="ciudad">📍 ${escapeHtml(aviso.ciudad || 'Sin ciudad')}${aviso.sector ? ' · ' + escapeHtml(aviso.sector) : ''}</span>
+        <span class="ciudad">📍 ${escapeHtml(lugarTexto(aviso))}</span>
         <span class="comentarios-count">💬 ${numComentarios}</span>
       </div>
     </div>
   `;
   return a;
+}
+
+// Arma el texto de ubicación combinando ciudad/municipio, sector y
+// departamento, sin dejar separadores sueltos cuando algún dato falta
+// (varios campos son opcionales desde que se publica el aviso).
+function lugarTexto(aviso) {
+  const partes = [];
+  if (aviso.ciudad) partes.push(aviso.ciudad);
+  if (aviso.sector) partes.push(aviso.sector);
+  let texto = partes.length ? partes.join(' · ') : 'Ubicación no especificada';
+  if (aviso.departamento) texto += ` (${aviso.departamento})`;
+  return texto;
 }
 
 function escapeHtml(str) {
