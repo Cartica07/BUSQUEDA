@@ -6,6 +6,7 @@
 // del archivo js/colombia-data.js, que se carga antes que este script.
 
 let categoriaSeleccionada = 'persona';
+let tipoSeleccionado = 'perdido';
 let imagenBase64 = null;
 
 // Clave usada para guardar el progreso del formulario en este navegador,
@@ -18,6 +19,12 @@ let restaurandoBorrador = false;
 
 const btnsCategoria = document.querySelectorAll('.categoria-toggle button');
 const labelNombre = document.getElementById('labelNombre');
+const labelEdad = document.getElementById('labelEdad');
+const labelDepartamento = document.getElementById('labelDepartamento');
+const labelMunicipio = document.getElementById('labelMunicipio');
+const labelSector = document.getElementById('labelSector');
+const labelDescripcion = document.getElementById('labelDescripcion');
+const descripcionInput = document.getElementById('descripcion');
 const campoEdad = document.getElementById('campoEdad');
 const nombreInput = document.getElementById('nombre');
 const fotoInput = document.getElementById('fotoInput');
@@ -107,20 +114,45 @@ btnsCategoria.forEach(btn => {
     btnsCategoria.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     categoriaSeleccionada = btn.dataset.cat;
-    if (categoriaSeleccionada === 'mascota') {
-      labelNombre.textContent = 'Nombre de la mascota';
-      nombreInput.placeholder = '';
-      campoEdad.style.display = 'none';
-    } else {
-      labelNombre.textContent = 'Nombre de la persona';
-      nombreInput.placeholder = '';
-      campoEdad.style.display = 'block';
-    }
+    tipoSeleccionado = btn.dataset.tipo;
+    actualizarTextosFormulario();
     guardarBorrador();
   });
 });
 
-// Comprime la imagen en el navegador antes de guardarla (máx 900px de ancho, JPEG)
+// Adapta etiquetas y placeholders según sea persona/mascota y perdido/encontrado,
+// porque no se le pide lo mismo a quien perdió a alguien que a quien encontró
+// a alguien y no sabe nada de esa persona o animal.
+function actualizarTextosFormulario() {
+  const esMascota = categoriaSeleccionada === 'mascota';
+  const esEncontrado = tipoSeleccionado === 'encontrado';
+
+  labelNombre.textContent = esMascota
+    ? (esEncontrado ? 'Nombre de la mascota (si lo sabe)' : 'Nombre de la mascota')
+    : (esEncontrado ? 'Nombre de la persona (si lo sabe)' : 'Nombre de la persona');
+
+  campoEdad.style.display = esMascota ? 'none' : 'block';
+  labelEdad.textContent = esEncontrado ? 'Edad aproximada (opcional)' : 'Edad (opcional)';
+
+  labelDepartamento.textContent = esEncontrado ? 'Departamento donde la encontraste' : 'Departamento';
+  labelMunicipio.textContent = esEncontrado ? 'Municipio o ciudad donde la encontraste' : 'Municipio o ciudad';
+  labelSector.innerHTML = (esEncontrado ? 'Sector donde la encontraste ' : 'Sector ') +
+    '<span style="font-weight:400;color:var(--muted);">(barrio, comuna o zona)</span>';
+
+  labelDescripcion.textContent = 'Descripción (opcional)';
+  if (esEncontrado) {
+    descripcionInput.placeholder = esMascota
+      ? '¿En qué estado la encontraste? Raza, color, tamaño, si tiene collar o placa, cómo se comporta, si está herida...'
+      : '¿En qué estado la encontraste? ¿Ha dicho algo, sabe su nombre o dónde vive? Ropa, señas particulares, edad aproximada...';
+  } else {
+    descripcionInput.placeholder = esMascota
+      ? 'Raza, color, tamaño, señas particulares, si tenía collar, cómo se comporta...'
+      : 'Última vez visto/a, ropa, señas particulares, cualquier detalle que ayude a identificarla...';
+  }
+}
+
+// Aplica los textos correctos para el estado inicial (persona + perdido)
+actualizarTextosFormulario();
 function manejarSeleccionFoto(file) {
   if (!file) return;
 
@@ -161,6 +193,7 @@ function guardarBorrador() {
   try {
     const borrador = {
       categoria: categoriaSeleccionada,
+      tipo: tipoSeleccionado,
       nombre: nombreInput.value,
       departamento: departamentoSelect.value,
       municipio: municipioSelect.value,
@@ -198,10 +231,12 @@ function restaurarBorrador() {
 
   restaurandoBorrador = true;
 
-  if (borrador.categoria === 'mascota') {
-    const btnMascota = document.querySelector('.categoria-toggle button[data-cat="mascota"]');
-    if (btnMascota) btnMascota.click();
-  }
+  const tipoBorrador = borrador.tipo === 'encontrado' ? 'encontrado' : 'perdido';
+  const catBorrador = borrador.categoria === 'mascota' ? 'mascota' : 'persona';
+  const btnCoincidente = document.querySelector(
+    `.categoria-toggle button[data-cat="${catBorrador}"][data-tipo="${tipoBorrador}"]`
+  );
+  if (btnCoincidente) btnCoincidente.click();
 
   if (borrador.nombre) nombreInput.value = borrador.nombre;
 
@@ -260,7 +295,7 @@ form.addEventListener('submit', (e) => {
   // toda la información escrita, así que el resto de campos son de apoyo
   // para poder filtrar y buscar, no un requisito para publicar.
   if (!imagenBase64) {
-    errorMsg.textContent = 'Sube el aviso de búsqueda antes de publicar.';
+    errorMsg.textContent = 'Sube el aviso o foto antes de publicar.';
     errorMsg.classList.add('show');
     return;
   }
@@ -281,7 +316,8 @@ form.addEventListener('submit', (e) => {
 
   const nuevoAviso = {
     categoria: categoriaSeleccionada,
-    nombre: nombre || (categoriaSeleccionada === 'mascota' ? 'Mascota sin nombre' : 'Sin nombre'),
+    tipo: tipoSeleccionado,
+    nombre: nombre || nombrePorDefecto(),
     descripcion,
     whatsapp: whatsappFinal,
     redSocial,
@@ -293,6 +329,13 @@ form.addEventListener('submit', (e) => {
   if (municipio) nuevoAviso.ciudad = municipio;
   if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
   if (sector) nuevoAviso.sector = sector;
+
+  function nombrePorDefecto() {
+    if (tipoSeleccionado === 'encontrado') {
+      return categoriaSeleccionada === 'mascota' ? 'Mascota no identificada' : 'Persona no identificada';
+    }
+    return categoriaSeleccionada === 'mascota' ? 'Mascota sin nombre' : 'Sin nombre';
+  }
 
   // Si la conexión está lenta o inestable, el guardado puede tardar. Si pasan
   // más de 12 segundos sin respuesta, avisamos en vez de dejar el botón trabado.
