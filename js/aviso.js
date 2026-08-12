@@ -52,7 +52,7 @@ function renderAviso(aviso) {
         <div class="meta">
           ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
           <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
-          <span>📍 ${escapeHtml(aviso.ciudad)}</span>
+          <span>📍 ${escapeHtml(aviso.ciudad)}${aviso.sector ? ' · ' + escapeHtml(aviso.sector) : ''}</span>
           <span class="mono">${formatoFecha(aviso.fecha)}</span>
         </div>
         ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
