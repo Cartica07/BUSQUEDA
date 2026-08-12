@@ -1,14 +1,16 @@
 // ============================================================
-// FEED PRINCIPAL — index.html
+// FEED PRINCIPAL — index.html (paginado incremental / "Cargar más")
 // ============================================================
 
-let todosLosAvisos = {};
+let loadedAvisos = {};            // avisos cargados hasta ahora (id -> aviso)
+let loadedOrder = [];            // ids en orden descendente por fecha (más nuevo primero)
 let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
 let filtroTipo = 'perdido';
 
+const PAGE_SIZE = 12;
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const contador = document.getElementById('contador');
@@ -20,54 +22,194 @@ const tipoToggle = document.getElementById('tipoToggle');
 const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
+const btnCargarMas = document.getElementById('cargarMas');
+const loadingIndicator = document.getElementById('loadingIndicator');
 
-// Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
-db.ref('avisos').on('value', (snapshot) => {
-  todosLosAvisos = snapshot.val() || {};
-  actualizarSelectDepartamentos();
-  render();
+let loading = false;
+let noMore = false;
+let lastLoadedFecha = null; // fecha mínima (más antigua) cargada hasta ahora
+let latestFecha = 0; // fecha máxima cargada, para notificaciones en tiempo real
+
+// --- Inicial: cargar la primera página ---
+document.addEventListener('DOMContentLoaded', () => {
+  initControls();
+  limpiarGridMensaje();
+  cargarPaginaInicial();
+  setupRealtimeNewItems();
 });
 
-tabsCategoria.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
-  if (!btn) return;
-  [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  filtroCategoria = btn.dataset.cat;
-  render();
-});
+// --- Controles / filtros (igual que antes, pero aplicados sobre los avisos cargados) ---
+function initControls() {
+  tabsCategoria.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    filtroCategoria = btn.dataset.cat;
+    render();
+  });
 
-selectDepartamento.addEventListener('change', () => {
-  filtroDepartamento = selectDepartamento.value;
-  poblarSelectCiudad(filtroDepartamento);
-  render();
-});
+  selectDepartamento.addEventListener('change', () => {
+    filtroDepartamento = selectDepartamento.value;
+    poblarSelectCiudad(filtroDepartamento);
+    render();
+  });
 
-selectCiudad.addEventListener('change', () => {
-  filtroCiudad = selectCiudad.value;
-  render();
-});
+  selectCiudad.addEventListener('change', () => {
+    filtroCiudad = selectCiudad.value;
+    render();
+  });
 
-// Búsqueda por nombre: no distingue mayúsculas/minúsculas, ignora espacios
-// de sobra y hace coincidencia parcial (con poner una parte del nombre
-// alcanza, sin importar en qué lugar del nombre completo esté).
-inputBuscar.addEventListener('input', () => {
-  filtroNombre = normalizarTexto(inputBuscar.value);
-  render();
-});
+  inputBuscar.addEventListener('input', () => {
+    filtroNombre = normalizarTexto(inputBuscar.value);
+    render();
+  });
 
-tipoToggle.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tipo-btn');
-  if (!btn) return;
-  [...tipoToggle.children].forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  filtroTipo = btn.dataset.tipo;
-  render();
-});
+  tipoToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tipo-btn');
+    if (!btn) return;
+    [...tipoToggle.children].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroTipo = btn.dataset.tipo;
+    render();
+  });
 
+  btnCargarMas.addEventListener('click', () => {
+    if (!loading && !noMore) cargarPaginaSiguiente();
+  });
+}
+
+// --- Cargar página inicial (los N avisos más recientes) ---
+function cargarPaginaInicial() {
+  loading = true;
+  showLoading(true);
+  // query: los N más recientes (limitToLast) luego los invertimos para mostrar descendente
+  db.ref('avisos').orderByChild('fecha').limitToLast(PAGE_SIZE).once('value')
+    .then(snapshot => {
+      const val = snapshot.val() || {};
+      const items = Object.entries(val); // [ [id, aviso], ... ] orden no garantizado
+      // convertir a array y ordenar por fecha asc/desc adecuadamente
+      const arr = items.map(([id, a]) => ({ id, a }));
+      arr.sort((x, y) => (y.a.fecha || 0) - (x.a.fecha || 0)); // descendente
+      if (arr.length === 0) {
+        // no hay avisos en absoluto
+        loadedAvisos = {};
+        loadedOrder = [];
+        actualizarSelectDepartamentos();
+        render();
+        noMore = true;
+        btnCargarMas.style.display = 'none';
+      } else {
+        arr.forEach(({ id, a }) => {
+          loadedAvisos[id] = a;
+          loadedOrder.push(id);
+        });
+        lastLoadedFecha = arr[arr.length - 1].a.fecha || 0; // más antiguo de los cargados
+        latestFecha = Math.max(latestFecha, arr[0].a.fecha || 0);
+        // Si se trajeron menos que PAGE_SIZE, significa que no hay más
+        if (arr.length < PAGE_SIZE) {
+          noMore = true;
+          btnCargarMas.style.display = 'none';
+        } else {
+          noMore = false;
+          btnCargarMas.style.display = 'inline-block';
+        }
+        actualizarSelectDepartamentos();
+        render();
+      }
+    })
+    .catch(err => {
+      console.error('Error cargando avisos iniciales', err);
+    })
+    .finally(() => {
+      loading = false;
+      showLoading(false);
+    });
+}
+
+// --- Cargar página siguiente (más antiguos) ---
+function cargarPaginaSiguiente() {
+  if (loading || noMore) return;
+  loading = true;
+  showLoading(true);
+  // endAt(lastLoadedFecha - 1) para traer items con fecha < lastLoadedFecha
+  const endAtValue = (typeof lastLoadedFecha === 'number' && lastLoadedFecha > 0) ? lastLoadedFecha - 1 : lastLoadedFecha;
+  let query = db.ref('avisos').orderByChild('fecha');
+  if (endAtValue || endAtValue === 0) query = query.endAt(endAtValue);
+  query = query.limitToLast(PAGE_SIZE);
+
+  query.once('value')
+    .then(snapshot => {
+      const val = snapshot.val() || {};
+      const items = Object.entries(val);
+      // Si no hay elementos nuevos, marcamos noMore
+      if (!items.length) {
+        noMore = true;
+        btnCargarMas.style.display = 'none';
+        return;
+      }
+      const arr = items.map(([id, a]) => ({ id, a }));
+      // Orden descendente por fecha
+      arr.sort((x, y) => (y.a.fecha || 0) - (x.a.fecha || 0));
+      // Evitar duplicados: puede ocurrir que endAt devuelva el mismo item por cómo se calcule la fecha
+      const nuevos = arr.filter(({ id }) => !loadedAvisos.hasOwnProperty(id));
+      if (nuevos.length === 0) {
+        // Si todos venían duplicados probablemente no hay más
+        noMore = true;
+        btnCargarMas.style.display = 'none';
+        return;
+      }
+      nuevos.forEach(({ id, a }) => {
+        loadedAvisos[id] = a;
+        loadedOrder.push(id); // push al final -> orden descendente mantenido
+      });
+      lastLoadedFecha = arr[arr.length - 1].a.fecha || lastLoadedFecha;
+      // Si la página que vino tiene menos elementos que PAGE_SIZE, quizá no hay más
+      if (arr.length < PAGE_SIZE) {
+        noMore = true;
+        btnCargarMas.style.display = 'none';
+      } else {
+        btnCargarMas.style.display = 'inline-block';
+      }
+      actualizarSelectDepartamentos();
+      render();
+    })
+    .catch(err => {
+      console.error('Error cargando más avisos', err);
+    })
+    .finally(() => {
+      loading = false;
+      showLoading(false);
+    });
+}
+
+// --- Listener para avisos nuevos en tiempo real (solo para nuevos más recientes) ---
+function setupRealtimeNewItems() {
+  // Observa el más reciente continuamente; cuando aparezca uno con fecha mayor que latestFecha, lo inserta al principio.
+  db.ref('avisos').orderByChild('fecha').limitToLast(1).on('child_added', snapshot => {
+    const id = snapshot.key;
+    const a = snapshot.val();
+    if (!a) return;
+    const fecha = a.fecha || 0;
+    if (fecha > latestFecha) {
+      // Prevenir duplicados
+      if (!loadedAvisos.hasOwnProperty(id)) {
+        loadedAvisos[id] = a;
+        loadedOrder.unshift(id); // al principio: más nuevo primero
+        latestFecha = Math.max(latestFecha, fecha);
+        // Ajustar lastLoadedFecha si es null
+        if (!lastLoadedFecha) lastLoadedFecha = fecha;
+        actualizarSelectDepartamentos();
+        render();
+      }
+    }
+  });
+}
+
+// --- Renderizado: usar loadedAvisos / loadedOrder en lugar de todosLosAvisos ---
 function actualizarSelectDepartamentos() {
   const departamentos = new Set();
-  Object.values(todosLosAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
+  Object.values(loadedAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
   const actual = selectDepartamento.value;
   selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
     [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
@@ -75,16 +217,9 @@ function actualizarSelectDepartamentos() {
   const sigueExistiendo = [...departamentos].includes(actual);
   selectDepartamento.value = sigueExistiendo ? actual : 'todas';
   filtroDepartamento = selectDepartamento.value;
-  // Si el departamento que tenía elegido ya no está disponible, el filtro
-  // de ciudad se recalcula desde cero (poblarSelectCiudad se encarga de
-  // resetearlo si hace falta).
   poblarSelectCiudad(filtroDepartamento);
 }
 
-// El filtro de ciudad depende del departamento elegido: usa el listado
-// completo de municipios de ese departamento (COLOMBIA_DATA, cargado desde
-// js/colombia-data.js), no solo los que ya tienen avisos publicados, para
-// que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
 function poblarSelectCiudad(depto) {
   if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
     selectCiudad.innerHTML = '<option value="todas">Elige primero el departamento</option>';
@@ -102,18 +237,10 @@ function poblarSelectCiudad(depto) {
   filtroCiudad = selectCiudad.value;
 }
 
-// Un aviso sin campo "tipo" (publicaciones viejas) se trata como "perdido",
-// que era el único tipo que existía antes de agregar esta división.
 function tipoDe(aviso) {
   return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
-// Clasifica cada aviso en una de las 3 pestañas del filtro superior:
-// 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
-// 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
-//                 esté o no ya entregado/reclamado.
-// 'resuelto'   -> era un aviso de "perdido" y su propio dueño/familia avisó
-//                 que ya apareció (no interviene ningún tercero).
 function categoriaFiltro(aviso) {
   if (tipoDe(aviso) === 'encontrado') return 'encontrado';
   return aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
@@ -126,19 +253,18 @@ function render() {
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
     (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
 
-  const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
+  // Usar loadedAvisos (solo lo que ya cargamos)
+  const todasLasCoincidencias = Object.entries(loadedAvisos).filter(coincideFiltrosBase);
 
-  // Los contadores de "Perdidos" / "Encontrados por otras personas" / "Ya
-  // encontrado por los dueños" reflejan los filtros de categoría, ubicación
-  // y nombre que estén activos, para que la persona sepa cuántos resultados
-  // hay en cada pestaña antes de elegir una.
+  // Contadores (sobre lo cargado)
   contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
   contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
   contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
 
-  const entradas = todasLasCoincidencias
-    .filter(([id, a]) => categoriaFiltro(a) === filtroTipo)
-    .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
+  // Filtrar por tipo y ordenar usando loadedOrder (para mantener consistencia de orden)
+  const entradas = loadedOrder
+    .map(id => [id, loadedAvisos[id]])
+    .filter(([id, a]) => a && coincideFiltrosBase([id, a]) && categoriaFiltro(a) === filtroTipo);
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
   grid.innerHTML = '';
@@ -162,10 +288,6 @@ function crearCard(id, aviso) {
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
 
-  // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
-  // dueño/familia marcó como resuelto. Ahora vive en su propia pestaña
-  // ("Ya encontrado por los dueños"), para que no se confunda con el sello
-  // rojo "ENCONTRADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
   const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
 
   a.innerHTML = `
@@ -195,10 +317,6 @@ function crearCard(id, aviso) {
   return a;
 }
 
-// Calcula el texto y color del sello según categoría (persona/mascota),
-// tipo (perdido = lo estoy buscando / encontrado = lo tengo yo) y estado
-// (buscando = sigue activo / encontrado = ya se resolvió el caso).
-// aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
 function calcularSello(aviso) {
   const esMascota = aviso.categoria === 'mascota';
   const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
@@ -208,8 +326,6 @@ function calcularSello(aviso) {
     if (resuelto) {
       return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
     }
-    // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
-    // se note que está pendiente de que su dueño lo reclame.
     return { stampClass: 'pendiente', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
   }
 
@@ -219,9 +335,6 @@ function calcularSello(aviso) {
   return { stampClass: esMascota ? 'mascota' : 'persona', stampTexto: esMascota ? 'PERDIDO' : 'SE BUSCA' };
 }
 
-// Arma el texto de ubicación combinando ciudad/municipio, sector y
-// departamento, sin dejar separadores sueltos cuando algún dato falta
-// (varios campos son opcionales desde que se publica el aviso).
 function lugarTexto(aviso) {
   const partes = [];
   if (aviso.ciudad) partes.push(aviso.ciudad);
@@ -237,10 +350,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Deja el texto listo para comparar: sin espacios de sobra al inicio/final,
-// todo en minúsculas y sin tildes (así "Sara" y "SARA " o "sára" matchean
-// igual). Se usa tanto para lo que escribe la persona como para el nombre
-// guardado en cada aviso.
 function normalizarTexto(str) {
   return (str || '')
     .toString()
@@ -248,4 +357,21 @@ function normalizarTexto(str) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+}
+
+// UTIL: mostrar/ocultar indicador
+function showLoading(show) {
+  if (show) {
+    loadingIndicator.style.display = 'block';
+    btnCargarMas.disabled = true;
+  } else {
+    loadingIndicator.style.display = 'none';
+    btnCargarMas.disabled = false;
+  }
+}
+
+function limpiarGridMensaje() {
+  // Si la grid tiene solo el mensaje inicial, lo limpiamos (ya que cargaremos por páginas)
+  const p = grid.querySelector('.loading-msg');
+  if (p) p.remove();
 }
