@@ -2,6 +2,19 @@
 // FORMULARIO DE CREACIÓN — crear.html
 // ============================================================
 
+// Ciudades afectadas por el terremoto del 10 de agosto de 2026 (mag. 7.4, epicentro
+// en San José del Palmar, Chocó). Ajustá esta lista si aparecen más zonas afectadas.
+const CIUDADES_AFECTADAS = [
+  'Cali',
+  'Pereira',
+  'Manizales',
+  'Quibdó',
+  'Armenia',
+  'San José del Palmar (Chocó)',
+  'Buenaventura',
+  'Otra ciudad afectada'
+];
+
 let categoriaSeleccionada = 'persona';
 let imagenBase64 = null;
 
@@ -15,6 +28,27 @@ const fotoTexto = document.getElementById('fotoTexto');
 const form = document.getElementById('formAviso');
 const btnSubmit = document.getElementById('btnSubmit');
 const errorMsg = document.getElementById('errorMsg');
+const ciudadSelect = document.getElementById('ciudad');
+const ciudadOtra = document.getElementById('ciudadOtra');
+const sectorInput = document.getElementById('sector');
+
+// Poblar el select de ciudades
+CIUDADES_AFECTADAS.forEach(c => {
+  const opt = document.createElement('option');
+  opt.value = c;
+  opt.textContent = c;
+  ciudadSelect.appendChild(opt);
+});
+
+// Al elegir ciudad: se desbloquea el campo "Sector", y si es "Otra" se pide el nombre
+ciudadSelect.addEventListener('change', () => {
+  const esOtra = ciudadSelect.value === 'Otra ciudad afectada';
+  ciudadOtra.style.display = esOtra ? 'block' : 'none';
+  ciudadOtra.required = esOtra;
+
+  sectorInput.disabled = false;
+  sectorInput.placeholder = 'Ej: Barrio El Pueblo, Comuna 3...';
+});
 
 btnsCategoria.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -67,11 +101,20 @@ form.addEventListener('submit', (e) => {
   errorMsg.classList.remove('show');
 
   const nombre = nombreInput.value.trim();
-  const ciudad = document.getElementById('ciudad').value.trim();
+  const ciudad = ciudadSelect.value === 'Otra ciudad afectada'
+    ? ciudadOtra.value.trim()
+    : ciudadSelect.value;
+  const sector = sectorInput.value.trim();
   const descripcion = document.getElementById('descripcion').value.trim();
   const whatsapp = document.getElementById('whatsapp').value.trim();
   const redSocial = document.getElementById('redSocial').value.trim();
   const edad = document.getElementById('edad').value.trim();
+
+  if (!imagenBase64) {
+    errorMsg.textContent = 'Subí la imagen del poster o aviso antes de publicar.';
+    errorMsg.classList.add('show');
+    return;
+  }
 
   if (!nombre || !ciudad || !whatsapp) {
     errorMsg.textContent = 'Completá al menos nombre, ciudad y WhatsApp de contacto.';
@@ -101,6 +144,7 @@ form.addEventListener('submit', (e) => {
     fecha: Date.now()
   };
   if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
+  if (sector) nuevoAviso.sector = sector;
 
   db.ref('avisos').push(nuevoAviso)
     .then((ref) => {
