@@ -281,14 +281,15 @@ button, .btn{
   border-radius:0 var(--radius) var(--radius) 0;
 }
 
-.categoria-toggle{ display:flex; gap:10px; }
+.categoria-toggle{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .categoria-toggle button{
-  flex:1; padding:14px; background:var(--paper); border:2px solid var(--line);
+  padding:14px; background:var(--paper); border:2px solid var(--line);
   border-radius:var(--radius); font-family:'Barlow Condensed',sans-serif;
-  font-size:17px; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted);
+  font-size:16px; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted);
 }
-.categoria-toggle button.active[data-cat="persona"]{ border-color:var(--primary); color:var(--primary); background:var(--persona-bg); }
-.categoria-toggle button.active[data-cat="mascota"]{ border-color:var(--mascota); color:var(--mascota); background:var(--mascota-bg); }
+.categoria-toggle button.active[data-cat="persona"][data-tipo="perdido"]{ border-color:var(--primary); color:var(--primary); background:var(--persona-bg); }
+.categoria-toggle button.active[data-cat="mascota"][data-tipo="perdido"]{ border-color:var(--mascota); color:var(--mascota); background:var(--mascota-bg); }
+.categoria-toggle button.active[data-tipo="encontrado"]{ border-color:var(--found); color:var(--found); background:var(--found-bg); }
 
 .foto-drop{
   border:2px dashed var(--line); border-radius:var(--radius);
