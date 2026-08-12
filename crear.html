@@ -21,18 +21,19 @@
 
 <div class="form-wrap">
   <h1>Publicar aviso</h1>
-  <p class="lead">Sube el poster o aviso que ya tienes armado. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
+  <p class="lead">Sube el aviso de la persona o mascota desaparecida. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
 
   <div class="error-msg" id="errorMsg"></div>
 
   <form id="formAviso">
     <div class="field">
-      <label>Poster / aviso</label>
+      <label>Aviso de búsqueda</label>
       <div class="foto-drop" id="fotoDrop">
-        <span id="fotoTexto">Tocá para subir el poster que ya tienes (foto o imagen)</span>
+        <span id="fotoTexto">Tocá para subir el aviso que ya tienes armado (foto o imagen)</span>
         <input type="file" id="fotoInput" accept="image/jpeg,image/png,image/webp,image/jpg" required>
       </div>
-      <div class="hint">Sube la imagen del aviso tal como la tienes. Formatos aceptados: JPG, PNG o WEBP.</div>
+      <div class="hint">Sube el aviso de búsqueda</div>
+      <div class="form-recomendacion">📋 Se recomienda rellenar el siguiente formulario para aumentar las probabilidades de encontrar a la persona o mascota perdida.</div>
     </div>
 
     <div class="field">
@@ -45,7 +46,7 @@
 
     <div class="field">
       <label id="labelNombre">Nombre de la persona</label>
-      <input type="text" id="nombre" placeholder="" required>
+      <input type="text" id="nombre" placeholder="">
     </div>
 
     <div class="field" id="campoEdad">
@@ -54,16 +55,23 @@
     </div>
 
     <div class="field">
-      <label>Ciudad</label>
-      <select id="ciudad" required>
-        <option value="" disabled selected>Ciudad donde reside</option>
+      <label>Departamento</label>
+      <select id="departamento">
+        <option value="" selected>Elegí el departamento</option>
       </select>
-      <input type="text" id="ciudadOtra" placeholder="Escribí el nombre de la ciudad" style="display:none; margin-top:8px;">
+    </div>
+
+    <div class="field" id="campoMunicipio" style="display:none;">
+      <label>Municipio o ciudad</label>
+      <select id="municipio">
+        <option value="" selected>Elegí el municipio</option>
+      </select>
+      <input type="text" id="municipioOtro" placeholder="Escribí el nombre del municipio o ciudad" style="display:none; margin-top:8px;">
     </div>
 
     <div class="field">
       <label id="labelSector">Sector <span style="font-weight:400;color:var(--muted);">(barrio, comuna o zona)</span></label>
-      <input type="text" id="sector" placeholder="Elige primero la ciudad" disabled>
+      <input type="text" id="sector" placeholder="Ej: Barrio El Pueblo, Comuna 3...">
     </div>
 
     <div class="field">
@@ -91,6 +99,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<script src="js/colombia-data.js"></script>
 <script src="js/crear.js"></script>
 </body>
 </html>
