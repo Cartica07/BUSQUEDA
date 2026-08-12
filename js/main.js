@@ -5,11 +5,13 @@
 let todosLosAvisos = {};
 let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
+let filtroCiudad = 'todas';
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const contador = document.getElementById('contador');
 const selectDepartamento = document.getElementById('selectDepartamento');
+const selectCiudad = document.getElementById('selectCiudad');
 const tabsCategoria = document.getElementById('tabsCategoria');
 
 // Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
@@ -30,6 +32,12 @@ tabsCategoria.addEventListener('click', (e) => {
 
 selectDepartamento.addEventListener('change', () => {
   filtroDepartamento = selectDepartamento.value;
+  poblarSelectCiudad(filtroDepartamento);
+  render();
+});
+
+selectCiudad.addEventListener('change', () => {
+  filtroCiudad = selectCiudad.value;
   render();
 });
 
@@ -39,13 +47,42 @@ function actualizarSelectDepartamentos() {
   const actual = selectDepartamento.value;
   selectDepartamento.innerHTML = '<option value="todas">Todos los departamentos</option>' +
     [...departamentos].sort((a, b) => a.localeCompare(b, 'es')).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-  selectDepartamento.value = [...departamentos].includes(actual) ? actual : 'todas';
+
+  const sigueExistiendo = [...departamentos].includes(actual);
+  selectDepartamento.value = sigueExistiendo ? actual : 'todas';
+  filtroDepartamento = selectDepartamento.value;
+  // Si el departamento que tenía elegido ya no está disponible, el filtro
+  // de ciudad se recalcula desde cero (poblarSelectCiudad se encarga de
+  // resetearlo si hace falta).
+  poblarSelectCiudad(filtroDepartamento);
+}
+
+// El filtro de ciudad depende del departamento elegido: usa el listado
+// completo de municipios de ese departamento (COLOMBIA_DATA, cargado desde
+// js/colombia-data.js), no solo los que ya tienen avisos publicados, para
+// que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
+function poblarSelectCiudad(depto) {
+  if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
+    selectCiudad.innerHTML = '<option value="todas">Primero selecciona departamento</option>';
+    selectCiudad.disabled = true;
+    filtroCiudad = 'todas';
+    return;
+  }
+
+  const actual = filtroCiudad;
+  const municipios = COLOMBIA_DATA[depto];
+  selectCiudad.innerHTML = '<option value="todas">Todas las ciudades</option>' +
+    municipios.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  selectCiudad.disabled = false;
+  selectCiudad.value = municipios.includes(actual) ? actual : 'todas';
+  filtroCiudad = selectCiudad.value;
 }
 
 function render() {
   const entradas = Object.entries(todosLosAvisos)
     .filter(([id, a]) => filtroCategoria === 'todas' || a.categoria === filtroCategoria)
     .filter(([id, a]) => filtroDepartamento === 'todas' || a.departamento === filtroDepartamento)
+    .filter(([id, a]) => filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
