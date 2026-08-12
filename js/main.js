@@ -87,7 +87,7 @@ function crearCard(id, aviso) {
       </div>
       ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
       <div class="foot">
-        <span class="ciudad">📍 ${escapeHtml(aviso.ciudad || 'Sin ciudad')}</span>
+        <span class="ciudad">📍 ${escapeHtml(aviso.ciudad || 'Sin ciudad')}${aviso.sector ? ' · ' + escapeHtml(aviso.sector) : ''}</span>
         <span class="comentarios-count">💬 ${numComentarios}</span>
       </div>
     </div>
