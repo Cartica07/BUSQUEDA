@@ -21,11 +21,58 @@ const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
 
-// Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
+// ------------------------------------------------------------
+// Carga rápida en 3 etapas, para que la página se sienta rápida
+// aunque haya muchos avisos con fotos pesadas:
+//
+//  1) Si ya visitaste la página antes en esta pestaña, se pinta
+//     al instante lo último que se vio (desde sessionStorage),
+//     sin esperar nada de la red.
+//  2) Se pide a Firebase SOLO los avisos más recientes (los 20
+//     últimos por fecha) y se pintan apenas llegan — es una
+//     consulta chica, así que llega rápido.
+//  3) En paralelo, se sigue escuchando el listado COMPLETO en
+//     tiempo real; cuando termina de bajar (y cada vez que algo
+//     cambia), se actualiza la vista y se refresca la caché.
+// ------------------------------------------------------------
+const CACHE_KEY = 'busqueda_avisos_cache_v1';
+
+try {
+  const cache = sessionStorage.getItem(CACHE_KEY);
+  if (cache) {
+    todosLosAvisos = JSON.parse(cache);
+    actualizarSelectDepartamentos();
+    render();
+  }
+} catch (e) {
+  console.warn('No se pudo leer la caché local:', e);
+}
+
+// Etapa 2: los más recientes primero, rápido.
+db.ref('avisos').orderByChild('fecha').limitToLast(20).once('value')
+  .then((snapshot) => {
+    const recientes = snapshot.val() || {};
+    todosLosAvisos = { ...todosLosAvisos, ...recientes };
+    actualizarSelectDepartamentos();
+    render();
+  })
+  .catch((err) => console.error('Error cargando avisos recientes:', err));
+
+// Etapa 3: el listado completo, en vivo. Cuando llega, reemplaza
+// del todo a todosLosAvisos (por eso ya no hace falta mezclar) y
+// deja todo guardado en caché para la próxima visita.
 db.ref('avisos').on('value', (snapshot) => {
   todosLosAvisos = snapshot.val() || {};
   actualizarSelectDepartamentos();
   render();
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify(todosLosAvisos));
+  } catch (e) {
+    // Si el dataset es muy grande para sessionStorage, simplemente no
+    // cacheamos: la página igual funciona, solo no arranca instantánea
+    // la próxima vez.
+    console.warn('No se pudo guardar la caché local (dataset grande):', e);
+  }
 });
 
 tabsCategoria.addEventListener('click', (e) => {
