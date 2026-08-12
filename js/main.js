@@ -7,6 +7,7 @@ let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
+let filtroTipo = 'perdido';
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -15,6 +16,9 @@ const selectDepartamento = document.getElementById('selectDepartamento');
 const selectCiudad = document.getElementById('selectCiudad');
 const tabsCategoria = document.getElementById('tabsCategoria');
 const inputBuscar = document.getElementById('buscarNombre');
+const tipoToggle = document.getElementById('tipoToggle');
+const contadorPerdidos = document.getElementById('contadorPerdidos');
+const contadorEncontrados = document.getElementById('contadorEncontrados');
 
 // Escucha en tiempo real la lista de avisos, ordenados del más nuevo al más viejo
 db.ref('avisos').on('value', (snapshot) => {
@@ -48,6 +52,15 @@ selectCiudad.addEventListener('change', () => {
 // alcanza, sin importar en qué lugar del nombre completo esté).
 inputBuscar.addEventListener('input', () => {
   filtroNombre = normalizarTexto(inputBuscar.value);
+  render();
+});
+
+tipoToggle.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tipo-btn');
+  if (!btn) return;
+  [...tipoToggle.children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filtroTipo = btn.dataset.tipo;
   render();
 });
 
@@ -88,12 +101,29 @@ function poblarSelectCiudad(depto) {
   filtroCiudad = selectCiudad.value;
 }
 
+// Un aviso sin campo "tipo" (publicaciones viejas) se trata como "perdido",
+// que era el único tipo que existía antes de agregar esta división.
+function tipoDe(aviso) {
+  return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
+}
+
 function render() {
-  const entradas = Object.entries(todosLosAvisos)
-    .filter(([id, a]) => filtroCategoria === 'todas' || a.categoria === filtroCategoria)
-    .filter(([id, a]) => filtroDepartamento === 'todas' || a.departamento === filtroDepartamento)
-    .filter(([id, a]) => filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
-    .filter(([id, a]) => !filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre))
+  const coincideFiltrosBase = ([id, a]) =>
+    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
+    (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
+    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
+    (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
+
+  const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
+
+  // Los contadores de "Perdidos" / "Encontrados" reflejan los filtros de
+  // categoría, ubicación y nombre que estén activos, para que la persona
+  // sepa cuántos resultados hay en cada mitad antes de elegir una.
+  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => tipoDe(a) === 'perdido').length;
+  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => tipoDe(a) === 'encontrado').length;
+
+  const entradas = todasLasCoincidencias
+    .filter(([id, a]) => tipoDe(a) === filtroTipo)
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   contador.textContent = entradas.length + (entradas.length === 1 ? ' aviso' : ' avisos');
@@ -118,11 +148,18 @@ function crearCard(id, aviso) {
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
 
+  // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
+  // dueño/familia marcó como resuelto. Se distingue con una cinta grande
+  // y cruzada (como los carteles físicos reales), para que no se confunda
+  // con "HALLADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
+  const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
+
   a.innerHTML = `
-    <div class="tape"></div>
-    <div class="stamp ${stampClass}">${stampTexto}</div>
-    ${aviso.imagenBase64
-      ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
+    <div class="card-media">
+      <div class="tape"></div>
+      <div class="stamp ${stampClass}">${stampTexto}</div>
+      ${aviso.imagenBase64
+        ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
       : `<div class="foto sin-foto">Sin foto</div>`}
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
@@ -146,7 +183,7 @@ function crearCard(id, aviso) {
 // aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
 function calcularSello(aviso) {
   const esMascota = aviso.categoria === 'mascota';
-  const esTipoEncontrado = aviso.tipo === 'encontrado';
+  const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
   const resuelto = aviso.estado === 'encontrado';
 
   if (esTipoEncontrado) {
