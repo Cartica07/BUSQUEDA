@@ -9,6 +9,9 @@
 // 4. En el ícono de engranaje > Configuración del proyecto > tus apps
 //    > ícono "</>" (Web) > registrá la app y copiá el firebaseConfig
 // 5. Pegalo acá abajo, reemplazando los valores de ejemplo.
+//
+// Para el panel de administración (admin.html) hace falta un paso extra:
+// ver las instrucciones en el README, sección "Panel de administración".
 // ============================================================
 
 const firebaseConfig = {
@@ -23,3 +26,6 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+// El SDK de Auth solo se carga en admin.html (las demás páginas no lo
+// necesitan), por eso se crea `auth` únicamente si está disponible.
+const auth = (typeof firebase.auth === 'function') ? firebase.auth() : null;
