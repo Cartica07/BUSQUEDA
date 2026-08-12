@@ -150,15 +150,40 @@ form.addEventListener('submit', (e) => {
   if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
   if (sector) nuevoAviso.sector = sector;
 
-  db.ref('avisos').push(nuevoAviso)
-    .then((ref) => {
-      window.location.href = `aviso.html?id=${ref.key}`;
-    })
-    .catch((err) => {
-      console.error(err);
-      errorMsg.textContent = 'No se pudo publicar. Revisá tu conexión e intentá de nuevo.';
+  // Si la conexión está lenta o inestable, el guardado puede tardar. Si pasan
+  // más de 12 segundos sin respuesta, avisamos en vez de dejar el botón trabado.
+  let yaResolvio = false;
+  const avisoLento = setTimeout(() => {
+    if (!yaResolvio) {
+      errorMsg.textContent = 'Está tardando más de lo normal — revisá tu conexión a internet. El aviso puede tardar en aparecer si la señal es débil, no hace falta que lo publiques de nuevo todavía.';
       errorMsg.classList.add('show');
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = 'Publicar aviso';
-    });
+      btnSubmit.textContent = 'Publicando... (esperando conexión)';
+    }
+  }, 12000);
+
+  try {
+    db.ref('avisos').push(nuevoAviso)
+      .then((ref) => {
+        yaResolvio = true;
+        clearTimeout(avisoLento);
+        window.location.href = `aviso.html?id=${ref.key}`;
+      })
+      .catch((err) => {
+        yaResolvio = true;
+        clearTimeout(avisoLento);
+        console.error('Error al publicar en Firebase:', err);
+        errorMsg.textContent = 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
+        errorMsg.classList.add('show');
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Publicar aviso';
+      });
+  } catch (err) {
+    yaResolvio = true;
+    clearTimeout(avisoLento);
+    console.error('Error inesperado al intentar publicar:', err);
+    errorMsg.textContent = 'Ocurrió un error inesperado. Revisá la consola del navegador (F12) para más detalle.';
+    errorMsg.classList.add('show');
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = 'Publicar aviso';
+  }
 });
