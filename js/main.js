@@ -155,15 +155,18 @@ function tipoDe(aviso) {
   return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
-// Clasifica cada aviso en una de las 3 pestañas del filtro superior:
+// Clasifica cada aviso en una de las 3 pestañas del filtro superior.
+// El estado "ya resuelto" manda por encima de todo lo demás: no importa
+// si lo encontró su propio dueño o alguien ajeno, en cuanto está marcado
+// como entregado/reclamado pasa a "Ya encontrado por los dueños".
 // 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
 // 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
-//                 esté o no ya entregado/reclamado.
-// 'resuelto'   -> era un aviso de "perdido" y su propio dueño/familia avisó
-//                 que ya apareció (no interviene ningún tercero).
+//                 pero todavía nadie lo reclamó (estado sigue "buscando").
+// 'resuelto'   -> ya está de vuelta con su dueño/familia, sin importar quién
+//                 lo haya encontrado.
 function categoriaFiltro(aviso) {
-  if (tipoDe(aviso) === 'encontrado') return 'encontrado';
-  return aviso.estado === 'encontrado' ? 'resuelto' : 'perdido';
+  if (aviso.estado === 'encontrado') return 'resuelto';
+  return tipoDe(aviso) === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
 function render() {
