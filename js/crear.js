@@ -18,6 +18,14 @@ const CIUDADES_AFECTADAS = [
 let categoriaSeleccionada = 'persona';
 let imagenBase64 = null;
 
+// Clave usada para guardar el progreso del formulario en este navegador,
+// por si se recarga la página o se cierra por error antes de publicar.
+const BORRADOR_KEY = 'busqueda_borrador_aviso';
+// Mientras se está restaurando un borrador, no queremos que los propios
+// eventos que dispara la restauración (click, change) pisen el borrador
+// con datos todavía incompletos.
+let restaurandoBorrador = false;
+
 const btnsCategoria = document.querySelectorAll('.categoria-toggle button');
 const labelNombre = document.getElementById('labelNombre');
 const campoEdad = document.getElementById('campoEdad');
@@ -48,6 +56,7 @@ ciudadSelect.addEventListener('change', () => {
 
   sectorInput.disabled = false;
   sectorInput.placeholder = 'Ej: Barrio El Pueblo, Comuna 3...';
+  guardarBorrador();
 });
 
 btnsCategoria.forEach(btn => {
@@ -57,13 +66,14 @@ btnsCategoria.forEach(btn => {
     categoriaSeleccionada = btn.dataset.cat;
     if (categoriaSeleccionada === 'mascota') {
       labelNombre.textContent = 'Nombre de la mascota';
-      nombreInput.placeholder = 'Ej: Firulais (o "No sé el nombre" si no es tuya)';
+      nombreInput.placeholder = '';
       campoEdad.style.display = 'none';
     } else {
       labelNombre.textContent = 'Nombre de la persona';
-      nombreInput.placeholder = 'Ej: María Fernanda Rojas';
+      nombreInput.placeholder = '';
       campoEdad.style.display = 'block';
     }
+    guardarBorrador();
   });
 });
 
@@ -88,6 +98,7 @@ function manejarSeleccionFoto(file) {
         <input type="file" id="fotoInput" accept="image/*">`;
       const nuevoInput = document.getElementById('fotoInput');
       nuevoInput.addEventListener('change', () => manejarSeleccionFoto(nuevoInput.files[0]));
+      guardarBorrador();
     };
     img.src = e.target.result;
   };
@@ -95,6 +106,90 @@ function manejarSeleccionFoto(file) {
 }
 
 fotoInput.addEventListener('change', () => manejarSeleccionFoto(fotoInput.files[0]));
+
+// ============================================================
+// GUARDADO AUTOMÁTICO DEL BORRADOR (localStorage)
+// ============================================================
+// Guarda el progreso del formulario para que, si la página se recarga
+// o se cierra por error antes de publicar, no se pierda lo ya escrito.
+
+function guardarBorrador() {
+  if (restaurandoBorrador) return;
+  try {
+    const borrador = {
+      categoria: categoriaSeleccionada,
+      nombre: nombreInput.value,
+      ciudad: ciudadSelect.value,
+      ciudadOtra: ciudadOtra.value,
+      sector: sectorInput.value,
+      descripcion: document.getElementById('descripcion').value,
+      whatsapp: document.getElementById('whatsapp').value,
+      redSocial: document.getElementById('redSocial').value,
+      edad: document.getElementById('edad').value,
+      imagenBase64
+    };
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+  } catch (err) {
+    // Si el navegador bloquea localStorage (modo privado, cuota llena, etc.)
+    // simplemente no se guarda el borrador; no debe romper el formulario.
+    console.warn('No se pudo guardar el borrador:', err);
+  }
+}
+
+function borrarBorrador() {
+  try {
+    localStorage.removeItem(BORRADOR_KEY);
+  } catch (err) { /* nada que hacer */ }
+}
+
+function restaurarBorrador() {
+  let borrador = null;
+  try {
+    const raw = localStorage.getItem(BORRADOR_KEY);
+    if (raw) borrador = JSON.parse(raw);
+  } catch (err) {
+    return;
+  }
+  if (!borrador) return;
+
+  restaurandoBorrador = true;
+
+  if (borrador.categoria === 'mascota') {
+    const btnMascota = document.querySelector('.categoria-toggle button[data-cat="mascota"]');
+    if (btnMascota) btnMascota.click();
+  }
+
+  if (borrador.nombre) nombreInput.value = borrador.nombre;
+  if (borrador.ciudad) {
+    ciudadSelect.value = borrador.ciudad;
+    ciudadSelect.dispatchEvent(new Event('change'));
+  }
+  if (borrador.ciudadOtra) ciudadOtra.value = borrador.ciudadOtra;
+  if (borrador.sector) sectorInput.value = borrador.sector;
+  if (borrador.descripcion) document.getElementById('descripcion').value = borrador.descripcion;
+  if (borrador.whatsapp) document.getElementById('whatsapp').value = borrador.whatsapp;
+  if (borrador.redSocial) document.getElementById('redSocial').value = borrador.redSocial;
+  if (borrador.edad) document.getElementById('edad').value = borrador.edad;
+
+  if (borrador.imagenBase64) {
+    imagenBase64 = borrador.imagenBase64;
+    fotoDrop.innerHTML = `<img src="${imagenBase64}" alt="Vista previa">
+      <input type="file" id="fotoInput" accept="image/*">`;
+    const nuevoInput = document.getElementById('fotoInput');
+    nuevoInput.addEventListener('change', () => manejarSeleccionFoto(nuevoInput.files[0]));
+  }
+
+  restaurandoBorrador = false;
+}
+
+// Cualquier cambio en estos campos actualiza el borrador guardado
+[nombreInput, ciudadOtra, sectorInput, document.getElementById('descripcion'),
+ document.getElementById('whatsapp'), document.getElementById('redSocial'),
+ document.getElementById('edad')].forEach(el => {
+  el.addEventListener('input', guardarBorrador);
+});
+
+restaurarBorrador();
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -166,6 +261,7 @@ form.addEventListener('submit', (e) => {
       .then((ref) => {
         yaResolvio = true;
         clearTimeout(avisoLento);
+        borrarBorrador();
         window.location.href = `aviso.html?id=${ref.key}`;
       })
       .catch((err) => {
