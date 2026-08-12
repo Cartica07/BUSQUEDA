@@ -212,11 +212,12 @@ function crearCard(id, aviso) {
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
 
-  // El caso más propenso a confusión: un aviso de "perdido" cuyo propio
-  // dueño/familia marcó como resuelto. Ahora vive en su propia pestaña
-  // ("Ya encontrado por los dueños"), para que no se confunda con el sello
-  // rojo "ENCONTRADO"/"YA ENTREGADO" (que es cuando alguien AJENO lo encontró).
-  const yaAparecioPorSuDueno = tipoDe(aviso) === 'perdido' && aviso.estado === 'encontrado';
+  // Cualquier aviso ya resuelto (estado "encontrado") lleva la cinta
+  // diagonal, sin importar si lo encontró su propio dueño/familia (tipo
+  // "perdido") o alguien ajeno que después lo entregó (tipo "encontrado").
+  // El texto cambia según el caso para que quede claro qué pasó.
+  const yaResuelto = aviso.estado === 'encontrado';
+  const textoRibbon = tipoDe(aviso) === 'encontrado' ? 'Ya entregado' : 'Ya apareció';
 
   a.innerHTML = `
     <div class="card-media">
@@ -226,7 +227,7 @@ function crearCard(id, aviso) {
         ${aviso.imagenBase64
           ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
         : `<div class="foto sin-foto">Sin foto</div>`}
-        ${yaAparecioPorSuDueno ? `<div class="ribbon-aparecio">Ya apareció</div>` : ''}
+        ${yaResuelto ? `<div class="ribbon-aparecio">${textoRibbon}</div>` : ''}
       </div>
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
