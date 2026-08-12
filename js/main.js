@@ -172,9 +172,12 @@ function crearCard(id, aviso) {
     <div class="card-media">
       <div class="tape"></div>
       <div class="stamp ${stampClass}">${stampTexto}</div>
-      ${aviso.imagenBase64
-        ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
-      : `<div class="foto sin-foto">Sin foto</div>`}
+      <div class="media-wrap">
+        ${aviso.imagenBase64
+          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
+        : `<div class="foto sin-foto">Sin foto</div>`}
+        ${yaAparecioPorSuDueno ? `<div class="ribbon-aparecio">Ya apareció</div>` : ''}
+      </div>
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
       <div class="meta">
@@ -186,6 +189,7 @@ function crearCard(id, aviso) {
         <span class="ciudad">📍 ${escapeHtml(lugarTexto(aviso))}</span>
         <span class="comentarios-count">💬 ${numComentarios}</span>
       </div>
+      <div class="btn-contactar">Contactar</div>
     </div>
   `;
   return a;
