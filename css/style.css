@@ -226,6 +226,17 @@ button, .btn{
 }
 .empty-state .display{ font-size:28px; color:var(--ink); margin-bottom:8px; }
 
+.loading-msg{
+  grid-column:1/-1;
+  text-align:center;
+  padding:60px 20px;
+  color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  animation:pulse-loading 1.3s ease-in-out infinite;
+}
+@keyframes pulse-loading{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+
 /* ---------- Card tipo flyer ---------- */
 .card{
   position:relative;
