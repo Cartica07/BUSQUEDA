@@ -1,131 +1,54 @@
-// ============================================================
-// PÁGINA DE DETALLE — aviso.html
-// ============================================================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviso — Se Busca</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
 
-const params = new URLSearchParams(window.location.search);
-const avisoId = params.get('id');
-
-const contenedorAviso = document.getElementById('contenedorAviso');
-const chatSection = document.getElementById('chatSection');
-const chatList = document.getElementById('chatList');
-const chatForm = document.getElementById('chatForm');
-
-if (!avisoId) {
-  contenedorAviso.innerHTML = `<p>No se encontró el aviso. <a href="index.html">Volver al inicio</a></p>`;
-} else {
-  cargarAviso();
-  escucharComentarios();
-}
-
-function cargarAviso() {
-  db.ref('avisos/' + avisoId).on('value', (snapshot) => {
-    const aviso = snapshot.val();
-    if (!aviso) {
-      contenedorAviso.innerHTML = `<p>Este aviso ya no existe. <a href="index.html">Volver al inicio</a></p>`;
-      chatSection.style.display = 'none';
-      return;
-    }
-    renderAviso(aviso);
-    chatSection.style.display = 'block';
-  });
-}
-
-function renderAviso(aviso) {
-  const encontrado = aviso.estado === 'encontrado';
-  const stampTexto = encontrado
-    ? (aviso.categoria === 'mascota' ? 'ENCONTRADO' : 'ENCONTRADO/A')
-    : (aviso.categoria === 'mascota' ? 'PERDIDO' : 'SE BUSCA');
-
-  const mensajeWa = encodeURIComponent(
-    `Hola, vi tu aviso de "${aviso.nombre}" en Se Busca y quería contarte algo al respecto.`
-  );
-
-  contenedorAviso.innerHTML = `
-    <div class="poster">
-      <div class="tape"></div>
-      <div class="stamp ${encontrado ? 'encontrado' : aviso.categoria}">${stampTexto}</div>
-      ${aviso.imagenBase64
-        ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}">`
-        : ''}
-      <div class="body">
-        <div class="nombre">${escapeHtml(aviso.nombre)}</div>
-        <div class="meta">
-          ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
-          <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
-          <span>📍 ${escapeHtml(aviso.ciudad)}${aviso.sector ? ' · ' + escapeHtml(aviso.sector) : ''}</span>
-          <span class="mono">${formatoFecha(aviso.fecha)}</span>
-        </div>
-        ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
-
-        ${encontrado ? `<div class="encontrado-banner">✓ Marcado como encontrado/a</div>` : ''}
-
-        <a class="whatsapp-btn" target="_blank" rel="noopener"
-           href="https://wa.me/${aviso.whatsapp}?text=${mensajeWa}">
-          Escribir por WhatsApp
-        </a>
-        ${aviso.redSocial ? `<div class="hint" style="margin-bottom:14px;">También en: ${escapeHtml(aviso.redSocial)}</div>` : ''}
-
-        ${!encontrado ? `<button class="marcar-encontrado" id="btnEncontrado">Marcar como ${aviso.categoria === 'mascota' ? 'encontrado' : 'encontrado/a'}</button>` : ''}
-      </div>
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
     </div>
-  `;
+  </a>
+  <a href="crear.html" class="btn-publicar">+ Publicar aviso</a>
+</header>
 
-  const btnEncontrado = document.getElementById('btnEncontrado');
-  if (btnEncontrado) {
-    btnEncontrado.addEventListener('click', () => {
-      if (confirm('¿Confirmás que ya apareció? Esto va a marcar el aviso como resuelto para todos.')) {
-        db.ref('avisos/' + avisoId + '/estado').set('encontrado');
-      }
-    });
-  }
-}
+<div class="aviso-wrap">
+  <a href="index.html" class="back-link">← Volver a todos los avisos</a>
 
-function escucharComentarios() {
-  db.ref('avisos/' + avisoId + '/comentarios').on('value', (snapshot) => {
-    const comentarios = snapshot.val() || {};
-    const entradas = Object.entries(comentarios).sort((a, b) => (a[1].fecha || 0) - (b[1].fecha || 0));
+  <div id="contenedorAviso">
+    <p class="mono" style="color:var(--muted);">Cargando aviso...</p>
+  </div>
 
-    if (entradas.length === 0) {
-      chatList.innerHTML = `<div class="chat-empty">Todavía no hay comentarios. Si sabés algo, escribí acá abajo.</div>`;
-      return;
-    }
+  <div class="chat-section" id="chatSection" style="display:none">
+    <h2>Comentarios</h2>
+    <p class="lead">¿Lo viste? ¿Tienes información? Dejá un mensaje acá abajo, en cualquier momento cualquiera puede responder.</p>
 
-    chatList.innerHTML = entradas.map(([id, c]) => `
-      <div class="msg">
-        <div class="msg-head">
-          <span class="autor">${escapeHtml(c.autor || 'Anónimo')}</span>
-          <span class="fecha">${formatoFecha(c.fecha)}</span>
-        </div>
-        <div class="texto">${escapeHtml(c.mensaje)}</div>
+    <div class="chat-list" id="chatList"></div>
+
+    <form class="chat-form" id="chatForm">
+      <div class="row">
+        <input type="text" id="chatAutor" placeholder="Tu nombre (opcional)">
       </div>
-    `).join('');
-  });
-}
+      <textarea id="chatMensaje" placeholder="Escribí tu mensaje..." required></textarea>
+      <button type="submit">Enviar comentario</button>
+    </form>
+  </div>
+</div>
 
-chatForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const autor = document.getElementById('chatAutor').value.trim();
-  const mensaje = document.getElementById('chatMensaje').value.trim();
-  if (!mensaje) return;
+<footer>
+  Hecho por la comunidad, para la comunidad · Verificá siempre la información antes de actuar sobre ella.
+</footer>
 
-  db.ref('avisos/' + avisoId + '/comentarios').push({
-    autor: autor || 'Anónimo',
-    mensaje,
-    fecha: Date.now()
-  }).then(() => {
-    document.getElementById('chatMensaje').value = '';
-  });
-});
-
-function formatoFecha(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) + ' · ' +
-         d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/aviso.js"></script>
+</body>
+</html>
