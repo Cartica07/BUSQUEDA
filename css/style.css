@@ -252,6 +252,19 @@ button, .btn{
 .error-msg{ background:#FBE7E0; color:var(--urgente-dark); border:1px solid var(--urgente); padding:10px 12px; border-radius:var(--radius); font-size:13px; margin-bottom:16px; display:none; }
 .error-msg.show{ display:block; }
 
+/* Callout llamativo invitando a completar el formulario */
+.form-recomendacion{
+  margin-top:12px;
+  background:linear-gradient(135deg, var(--urgente) 0%, var(--urgente-dark) 100%);
+  color:#fff;
+  padding:12px 14px;
+  border-radius:var(--radius);
+  font-size:13.5px;
+  font-weight:600;
+  line-height:1.4;
+  box-shadow:0 3px 10px rgba(217,84,28,0.28);
+}
+
 /* ---------- Página de aviso individual ---------- */
 .aviso-wrap{ max-width:640px; margin:0 auto; padding:26px 20px 80px; }
 .back-link{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); text-decoration:none; margin-bottom:16px; }
@@ -315,9 +328,75 @@ button, .btn{
 
 footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--muted); }
 
-@media (max-width:480px){
+/* ---------- Panel de administración ---------- */
+.admin-login-wrap{
+  min-height:70vh; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+}
+.admin-login-box{
+  width:100%; max-width:400px; background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--radius); box-shadow:var(--shadow); padding:28px 24px;
+}
+.admin-login-box h1{ font-size:26px; margin:0 0 6px; }
+.admin-login-box .lead{ color:var(--muted); font-size:13.5px; margin:0 0 20px; }
+
+.admin-dash{ max-width:1100px; margin:0 auto; padding:0 20px 60px; }
+
+.admin-stats{ display:flex; gap:12px; flex-wrap:wrap; padding:18px 0 4px; }
+.admin-stat{
+  flex:1; min-width:100px; background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--radius); padding:12px 14px; text-align:center;
+}
+.admin-stat .num{ display:block; font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:28px; color:var(--primary); }
+.admin-stat .lbl{ display:block; font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em; margin-top:2px; }
+
+.admin-search{
+  border:1px solid var(--line); background:var(--paper); padding:8px 12px;
+  border-radius:16px; font-size:14px; color:var(--ink); font-family:'Inter',sans-serif;
+  flex:1; min-width:160px;
+}
+
+.admin-list{ display:flex; flex-direction:column; gap:12px; padding:16px 0 40px; }
+.admin-row{
+  display:flex; gap:12px; background:var(--paper); border:1px solid var(--line);
+  border-radius:var(--radius); padding:12px; box-shadow:var(--shadow);
+}
+.admin-thumb{
+  width:76px; height:76px; object-fit:cover; border-radius:2px; flex-shrink:0; background:var(--line);
+}
+.admin-thumb.sin-foto{
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em; padding:4px;
+}
+.admin-row-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.admin-row-top{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.admin-row-top .nombre{ font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:18px; text-transform:uppercase; }
+.admin-row-meta{ font-size:11.5px; color:var(--muted); }
+.admin-row-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:2px; }
+.admin-btn{
+  font-size:12px; font-weight:600; padding:7px 11px; border-radius:var(--radius);
+  border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.admin-btn:hover{ background:var(--persona-bg); }
+.admin-btn-danger{ border-color:var(--urgente); color:var(--urgente-dark); }
+.admin-btn-danger:hover{ background:#FBE7E0; }
+
+@media (max-width:600px){
   .brand .name{ font-size:17px; }
   .filters{ padding:16px 16px 4px; }
-  .grid{ padding:14px 16px 50px; grid-template-columns:1fr 1fr; gap:14px; }
-  .card .nombre{ font-size:21px; }
+  .grid{ padding:14px 16px 50px; grid-template-columns:1fr 1fr; gap:10px; }
+  .card .nombre{ font-size:17px; }
+  .card .foto{ aspect-ratio:4/3; object-fit:cover; }
+  .card .foto.sin-foto{ aspect-ratio:4/3; font-size:12px; }
+  .card .body{ padding:9px 10px 10px; gap:4px; }
+  .card .meta{ font-size:10.5px; gap:6px; }
+  .card .desc{ font-size:11.5px; -webkit-line-clamp:2; line-height:1.35; }
+  .card .foot{ padding-top:6px; }
+  .card .ciudad{ font-size:10.5px; }
+  .card .comentarios-count{ font-size:10px; }
+  .stamp{ font-size:10px; padding:3px 7px; top:6px; right:6px; }
+  .card .tape{ width:52px; height:16px; top:-6px; }
+  .contador{ font-size:11px; }
+  .admin-row{ flex-wrap:wrap; }
+  .admin-thumb{ width:64px; height:64px; }
 }
