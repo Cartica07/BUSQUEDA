@@ -12,13 +12,13 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  databaseURL: "https://TU_PROYECTO-default-rtdb.firebaseio.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyBVDXnEsXPUJG8pPTkjXUKKpO3l3IRuu-8",
+  authDomain: "busqueda-855cb.firebaseapp.com",
+  databaseURL: "https://busqueda-855cb-default-rtdb.firebaseio.com",
+  projectId: "busqueda-855cb",
+  storageBucket: "busqueda-855cb.firebasestorage.app",
+  messagingSenderId: "845156228134",
+  appId: "1:845156228134:web:43f928ebff7ef1648c9ae7"
 };
 
 firebase.initializeApp(firebaseConfig);
