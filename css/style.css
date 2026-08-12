@@ -15,6 +15,10 @@
   --persona-bg: #E1EAE9;
   --found: #2E6B3E;
   --found-bg: #E2EEE3;
+  --pendiente: #B23A2E;
+  --pendiente-bg: #F7E1DE;
+  --resuelto: #6B4C8A;
+  --resuelto-bg: #ECE3F2;
   --radius: 3px;
   --shadow: 0 1px 0 rgba(22,32,29,0.05), 0 6px 16px rgba(22,32,29,0.08);
 }
@@ -165,15 +169,15 @@ button, .btn{
 .search-box input::placeholder{ color:var(--muted); }
 
 .tipo-toggle{
-  display:grid; grid-template-columns:1fr 1fr;
-  max-width:640px; margin:14px auto 0;
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  max-width:820px; margin:14px auto 0;
   border:1px solid var(--line); border-radius:var(--radius);
   overflow:hidden; background:var(--paper);
 }
 .tipo-btn{
   background:transparent; border:none;
-  padding:12px 10px 11px;
-  display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:12px 8px 11px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
   color:var(--muted);
   border-right:1px solid var(--line);
   transition:background .15s ease, color .15s ease;
@@ -181,7 +185,8 @@ button, .btn{
 .tipo-btn:last-child{ border-right:none; }
 .tipo-label{
   font-family:'Barlow Condensed',sans-serif; font-weight:800;
-  font-size:16px; text-transform:uppercase; letter-spacing:0.04em;
+  font-size:14px; text-transform:uppercase; letter-spacing:0.03em;
+  line-height:1.1; text-align:center;
 }
 .tipo-count{
   font-family:'IBM Plex Mono',monospace; font-size:12px;
@@ -192,6 +197,8 @@ button, .btn{
 .tipo-btn.active[data-tipo="perdido"] .tipo-count{ background:var(--primary); color:#fff; }
 .tipo-btn.active[data-tipo="encontrado"]{ background:var(--found-bg); color:var(--found); }
 .tipo-btn.active[data-tipo="encontrado"] .tipo-count{ background:var(--found); color:#fff; }
+.tipo-btn.active[data-tipo="resuelto"]{ background:var(--resuelto-bg); color:var(--resuelto); }
+.tipo-btn.active[data-tipo="resuelto"] .tipo-count{ background:var(--resuelto); color:#fff; }
 
 .contador{
   font-family:'IBM Plex Mono',monospace;
@@ -270,6 +277,7 @@ button, .btn{
 .stamp.persona{ color:var(--primary); background:rgba(255,253,248,0.88); }
 .stamp.mascota{ color:var(--mascota); background:rgba(255,253,248,0.88); }
 .stamp.encontrado{ color:var(--found); background:rgba(255,253,248,0.92); border-color:var(--found); }
+.stamp.pendiente{ color:var(--pendiente); background:rgba(255,253,248,0.92); border-color:var(--pendiente); }
 
 .card .body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:6px; flex:1; }
 .card .nombre{ font-size:26px; }
@@ -480,6 +488,10 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
   .card .ciudad{ font-size:10.5px; }
   .card .comentarios-count{ font-size:10px; }
   .stamp{ font-size:10px; padding:3px 7px; top:6px; right:6px; }
+  .tipo-toggle{ max-width:100%; }
+  .tipo-btn{ padding:9px 4px 8px; gap:3px; }
+  .tipo-label{ font-size:11px; letter-spacing:0.01em; }
+  .tipo-count{ font-size:11px; padding:1px 7px; }
   .card .tape{ width:52px; height:16px; top:-6px; }
   .contador{ font-size:11px; }
   .admin-row{ flex-wrap:wrap; }
