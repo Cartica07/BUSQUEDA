@@ -21,7 +21,7 @@
 
 <div class="form-wrap">
   <h1>Publicar aviso</h1>
-  <p class="lead">Subí el poster o aviso que ya tenés armado. Tu número de contacto va a quedar visible para que cualquiera pueda escribirte si tiene información.</p>
+  <p class="lead">Sube el poster o aviso que ya tienes armado. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
 
   <div class="error-msg" id="errorMsg"></div>
 
@@ -29,10 +29,10 @@
     <div class="field">
       <label>Poster / aviso</label>
       <div class="foto-drop" id="fotoDrop">
-        <span id="fotoTexto">Tocá para subir el poster que ya tenés (foto o imagen)</span>
-        <input type="file" id="fotoInput" accept="image/*" required>
+        <span id="fotoTexto">Tocá para subir el poster que ya tienes (foto o imagen)</span>
+        <input type="file" id="fotoInput" accept="image/jpeg,image/png,image/webp,image/jpg" required>
       </div>
-      <div class="hint">Subí la imagen del aviso tal como la tenés — la página es para alojarla y difundirla, no la creamos de nuevo. Se comprime automáticamente.</div>
+      <div class="hint">Sube la imagen del aviso tal como la tienes. Formatos aceptados: JPG, PNG o WEBP.</div>
     </div>
 
     <div class="field">
@@ -73,8 +73,10 @@
 
     <div class="field">
       <label>Tu WhatsApp de contacto</label>
-      <input type="tel" id="whatsapp" placeholder="Ej: 3001234567" required>
-      <div class="hint">Con indicativo si es posible. Va a aparecer como botón directo de WhatsApp en el aviso.</div>
+      <div class="whatsapp-input-group">
+        <span class="wa-prefix">+57</span>
+        <input type="tel" id="whatsapp" placeholder="3001234567">
+      </div>
     </div>
 
     <div class="field">
