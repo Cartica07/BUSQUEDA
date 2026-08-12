@@ -141,6 +141,7 @@ function crearFilaAdmin(id, aviso) {
   row.className = 'admin-row';
 
   const encontrado = aviso.estado === 'encontrado';
+  const esTipoEncontrado = aviso.tipo === 'encontrado';
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const lugar = [aviso.ciudad, aviso.sector].filter(Boolean).join(' · ') +
     (aviso.departamento ? ` (${aviso.departamento})` : '');
@@ -153,6 +154,7 @@ function crearFilaAdmin(id, aviso) {
       <div class="admin-row-top">
         <span class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</span>
         <span class="stamp ${encontrado ? 'encontrado' : aviso.categoria}" style="position:static;transform:none;">${encontrado ? 'ENCONTRADO' : (aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA')}</span>
+        <span class="mono" style="font-size:11px;color:var(--muted);">${esTipoEncontrado ? '· reportado como HALLADO' : '· reportado como PERDIDO'}</span>
       </div>
       <div class="admin-row-meta mono">${escapeHtml(lugar || 'Sin ubicación')} · ${formatoFecha(aviso.fecha)} · 💬 ${numComentarios}</div>
       <div class="admin-row-actions">
