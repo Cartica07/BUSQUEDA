@@ -1,160 +1,96 @@
-// ============================================================
-// FORMULARIO DE CREACIÓN — crear.html
-// ============================================================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publicar aviso — Se Busca</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
 
-// Ciudades afectadas por el terremoto del 10 de agosto de 2026 (mag. 7.4, epicentro
-// en San José del Palmar, Chocó). Ajustá esta lista si aparecen más zonas afectadas.
-const CIUDADES_AFECTADAS = [
-  'Cali',
-  'Pereira',
-  'Manizales',
-  'Quibdó',
-  'Armenia',
-  'San José del Palmar (Chocó)',
-  'Buenaventura',
-  'Otra ciudad afectada'
-];
+<header class="topbar">
+  <a href="index.html" class="brand">
+    <div class="mark">SB</div>
+    <div>
+      <span class="name">Se Busca</span>
+      <span class="sub">Colombia · Terremoto 10 ago 2026</span>
+    </div>
+  </a>
+  <a href="index.html" class="btn-publicar" style="background:transparent;color:#fff;">← Volver</a>
+</header>
 
-let categoriaSeleccionada = 'persona';
-let imagenBase64 = null;
+<div class="form-wrap">
+  <h1>Publicar aviso</h1>
+  <p class="lead">Sube el poster o aviso que ya tienes armado. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
 
-const btnsCategoria = document.querySelectorAll('.categoria-toggle button');
-const labelNombre = document.getElementById('labelNombre');
-const campoEdad = document.getElementById('campoEdad');
-const nombreInput = document.getElementById('nombre');
-const fotoInput = document.getElementById('fotoInput');
-const fotoDrop = document.getElementById('fotoDrop');
-const fotoTexto = document.getElementById('fotoTexto');
-const form = document.getElementById('formAviso');
-const btnSubmit = document.getElementById('btnSubmit');
-const errorMsg = document.getElementById('errorMsg');
-const ciudadSelect = document.getElementById('ciudad');
-const ciudadOtra = document.getElementById('ciudadOtra');
-const sectorInput = document.getElementById('sector');
+  <div class="error-msg" id="errorMsg"></div>
 
-// Poblar el select de ciudades
-CIUDADES_AFECTADAS.forEach(c => {
-  const opt = document.createElement('option');
-  opt.value = c;
-  opt.textContent = c;
-  ciudadSelect.appendChild(opt);
-});
+  <form id="formAviso">
+    <div class="field">
+      <label>Poster / aviso</label>
+      <div class="foto-drop" id="fotoDrop">
+        <span id="fotoTexto">Tocá para subir el poster que ya tienes (foto o imagen)</span>
+        <input type="file" id="fotoInput" accept="image/jpeg,image/png,image/webp,image/jpg" required>
+      </div>
+      <div class="hint">Sube la imagen del aviso tal como la tienes. Formatos aceptados: JPG, PNG o WEBP.</div>
+    </div>
 
-// Al elegir ciudad: se desbloquea el campo "Sector", y si es "Otra" se pide el nombre
-ciudadSelect.addEventListener('change', () => {
-  const esOtra = ciudadSelect.value === 'Otra ciudad afectada';
-  ciudadOtra.style.display = esOtra ? 'block' : 'none';
-  ciudadOtra.required = esOtra;
+    <div class="field">
+      <label>¿Qué estás reportando?</label>
+      <div class="categoria-toggle">
+        <button type="button" class="active" data-cat="persona">Persona perdida</button>
+        <button type="button" data-cat="mascota">Mascota perdida</button>
+      </div>
+    </div>
 
-  sectorInput.disabled = false;
-  sectorInput.placeholder = 'Ej: Barrio El Pueblo, Comuna 3...';
-});
+    <div class="field">
+      <label id="labelNombre">Nombre de la persona</label>
+      <input type="text" id="nombre" placeholder="Ej: María Fernanda Rojas" required>
+    </div>
 
-btnsCategoria.forEach(btn => {
-  btn.addEventListener('click', () => {
-    btnsCategoria.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    categoriaSeleccionada = btn.dataset.cat;
-    if (categoriaSeleccionada === 'mascota') {
-      labelNombre.textContent = 'Nombre de la mascota';
-      nombreInput.placeholder = 'Ej: Firulais (o "No sé el nombre" si no es tuya)';
-      campoEdad.style.display = 'none';
-    } else {
-      labelNombre.textContent = 'Nombre de la persona';
-      nombreInput.placeholder = 'Ej: María Fernanda Rojas';
-      campoEdad.style.display = 'block';
-    }
-  });
-});
+    <div class="field" id="campoEdad">
+      <label>Edad (opcional)</label>
+      <input type="text" id="edad" placeholder="Ej: 34 años">
+    </div>
 
-// Comprime la imagen en el navegador antes de guardarla (máx 900px de ancho, JPEG)
-function manejarSeleccionFoto(file) {
-  if (!file) return;
+    <div class="field">
+      <label>Ciudad</label>
+      <select id="ciudad" required>
+        <option value="" disabled selected>Elegí la ciudad afectada</option>
+      </select>
+      <input type="text" id="ciudadOtra" placeholder="Escribí el nombre de la ciudad" style="display:none; margin-top:8px;">
+    </div>
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const maxWidth = 900;
-      const scale = Math.min(1, maxWidth / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      imagenBase64 = canvas.toDataURL('image/jpeg', 0.72);
+    <div class="field">
+      <label id="labelSector">Sector <span style="font-weight:400;color:var(--muted);">(barrio, comuna o zona)</span></label>
+      <input type="text" id="sector" placeholder="Elegí primero la ciudad" disabled>
+    </div>
 
-      fotoDrop.innerHTML = `<img src="${imagenBase64}" alt="Vista previa">
-        <input type="file" id="fotoInput" accept="image/*">`;
-      const nuevoInput = document.getElementById('fotoInput');
-      nuevoInput.addEventListener('change', () => manejarSeleccionFoto(nuevoInput.files[0]));
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
+    <div class="field">
+      <label>Descripción (opcional)</label>
+      <textarea id="descripcion" placeholder="Última vez visto/a, ropa, señas particulares, raza, color, cualquier detalle que ayude..."></textarea>
+    </div>
 
-fotoInput.addEventListener('change', () => manejarSeleccionFoto(fotoInput.files[0]));
+    <div class="field">
+      <label>Tu WhatsApp de contacto</label>
+      <div class="whatsapp-input-group">
+        <span class="wa-prefix">+57</span>
+        <input type="tel" id="whatsapp" placeholder="3001234567">
+      </div>
+    </div>
 
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
-  errorMsg.classList.remove('show');
+    <div class="field">
+      <label>Otra red social (opcional)</label>
+      <input type="text" id="redSocial" placeholder="Ej: @usuario en Instagram">
+    </div>
 
-  const nombre = nombreInput.value.trim();
-  const ciudad = ciudadSelect.value === 'Otra ciudad afectada'
-    ? ciudadOtra.value.trim()
-    : ciudadSelect.value;
-  const sector = sectorInput.value.trim();
-  const descripcion = document.getElementById('descripcion').value.trim();
-  const whatsapp = document.getElementById('whatsapp').value.trim();
-  const redSocial = document.getElementById('redSocial').value.trim();
-  const edad = document.getElementById('edad').value.trim();
+    <button type="submit" class="btn-submit" id="btnSubmit">Publicar aviso</button>
+  </form>
+</div>
 
-  if (!imagenBase64) {
-    errorMsg.textContent = 'Subí la imagen del poster o aviso antes de publicar.';
-    errorMsg.classList.add('show');
-    return;
-  }
-
-  if (!nombre || !ciudad || !whatsapp) {
-    errorMsg.textContent = 'Completá al menos nombre, ciudad y WhatsApp de contacto.';
-    errorMsg.classList.add('show');
-    return;
-  }
-
-  const soloNumeros = whatsapp.replace(/\D/g, '');
-  if (soloNumeros.length < 7) {
-    errorMsg.textContent = 'Revisá el número de WhatsApp, parece incompleto.';
-    errorMsg.classList.add('show');
-    return;
-  }
-
-  btnSubmit.disabled = true;
-  btnSubmit.textContent = 'Publicando...';
-
-  const nuevoAviso = {
-    categoria: categoriaSeleccionada,
-    nombre,
-    ciudad,
-    descripcion,
-    whatsapp: soloNumeros,
-    redSocial,
-    imagenBase64: imagenBase64 || null,
-    estado: 'buscando',
-    fecha: Date.now()
-  };
-  if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
-  if (sector) nuevoAviso.sector = sector;
-
-  db.ref('avisos').push(nuevoAviso)
-    .then((ref) => {
-      window.location.href = `aviso.html?id=${ref.key}`;
-    })
-    .catch((err) => {
-      console.error(err);
-      errorMsg.textContent = 'No se pudo publicar. Revisá tu conexión e intentá de nuevo.';
-      errorMsg.classList.add('show');
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = 'Publicar aviso';
-    });
-});
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/crear.js"></script>
+</body>
+</html>
