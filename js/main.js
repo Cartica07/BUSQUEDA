@@ -63,7 +63,7 @@ function actualizarSelectDepartamentos() {
 // que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
 function poblarSelectCiudad(depto) {
   if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
-    selectCiudad.innerHTML = '<option value="todas">Primero selecciona departamento</option>';
+    selectCiudad.innerHTML = '<option value="todas">Elige primero el departamento</option>';
     selectCiudad.disabled = true;
     filtroCiudad = 'todas';
     return;
