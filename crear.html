@@ -27,27 +27,29 @@
 </header>
 
 <div class="form-wrap">
-  <h1>Publicar aviso</h1>
-  <p class="lead">Sube el aviso de la persona o mascota desaparecida. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
+  <h1>Publicar aviso o foto</h1>
+  <p class="lead">Sube el aviso de la persona o mascota desaparecida o encontrada. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
 
   <div class="error-msg" id="errorMsg"></div>
 
   <form id="formAviso">
     <div class="field">
-      <label>Aviso de búsqueda</label>
+      <label>Aviso o foto:</label>
       <div class="foto-drop" id="fotoDrop">
         <span id="fotoTexto">Tocá para subir el aviso que ya tienes armado (foto o imagen)</span>
         <input type="file" id="fotoInput" accept="image/jpeg,image/png,image/webp,image/jpg" required>
       </div>
-      <div class="hint">Sube el aviso de búsqueda</div>
-      <div class="form-recomendacion">📋 Se recomienda rellenar el siguiente formulario para aumentar las probabilidades de encontrar a la persona o mascota perdida.</div>
+      <div class="hint">Sube el aviso o foto de búsqueda</div>
+      <div class="form-recomendacion">📋 Se recomienda rellenar el siguiente formulario para aumentar las probabilidades de encontrar o que encuentren a la persona o mascota perdida.</div>
     </div>
 
     <div class="field">
       <label>¿Qué estás reportando?</label>
       <div class="categoria-toggle">
-        <button type="button" class="active" data-cat="persona">Persona perdida</button>
-        <button type="button" data-cat="mascota">Mascota perdida</button>
+        <button type="button" class="active" data-cat="persona" data-tipo="perdido">Persona perdida</button>
+        <button type="button" data-cat="mascota" data-tipo="perdido">Mascota perdida</button>
+        <button type="button" data-cat="persona" data-tipo="encontrado">Persona encontrada</button>
+        <button type="button" data-cat="mascota" data-tipo="encontrado">Mascota encontrada</button>
       </div>
     </div>
 
@@ -57,19 +59,19 @@
     </div>
 
     <div class="field" id="campoEdad">
-      <label>Edad (opcional)</label>
+      <label id="labelEdad">Edad (opcional)</label>
       <input type="text" id="edad" placeholder="">
     </div>
 
     <div class="field">
-      <label>Departamento</label>
+      <label id="labelDepartamento">Departamento</label>
       <select id="departamento">
         <option value="" selected>Elegí el departamento</option>
       </select>
     </div>
 
     <div class="field" id="campoMunicipio" style="display:none;">
-      <label>Municipio o ciudad</label>
+      <label id="labelMunicipio">Municipio o ciudad</label>
       <select id="municipio">
         <option value="" selected>Elegí el municipio</option>
       </select>
@@ -82,7 +84,7 @@
     </div>
 
     <div class="field">
-      <label>Descripción (opcional)</label>
+      <label id="labelDescripcion">Descripción (opcional)</label>
       <textarea id="descripcion" placeholder="Última vez visto/a, ropa, señas particulares, raza, color, cualquier detalle que ayude..."></textarea>
     </div>
 
@@ -99,7 +101,7 @@
       <input type="text" id="redSocial" placeholder="Ej: @usuario en Instagram">
     </div>
 
-    <button type="submit" class="btn-submit" id="btnSubmit">Publicar aviso</button>
+    <button type="submit" class="btn-submit" id="btnSubmit">Publicar aviso o foto</button>
   </form>
 </div>
 
