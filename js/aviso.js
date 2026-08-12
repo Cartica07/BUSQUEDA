@@ -17,6 +17,21 @@ if (!avisoId) {
   escucharComentarios();
 }
 
+// Si venís de la página principal (hay historial de navegación en esta
+// pestaña), usamos el botón "atrás" nativo del navegador en vez de forzar
+// una recarga con el link normal. Cuando el navegador lo permite, esto
+// restaura la página principal tal cual estaba (mismos avisos ya pintados,
+// mismo scroll) sin volver a pedir nada — es la forma más rápida posible
+// de "volver". Si no hay desde dónde volver (por ejemplo, entraste directo
+// a este aviso por un link compartido), se usa el link normal sin más.
+const linkVolver = document.getElementById('linkVolver');
+if (linkVolver && window.history.length > 1) {
+  linkVolver.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.history.back();
+  });
+}
+
 function cargarAviso() {
   db.ref('avisos/' + avisoId).on('value', (snapshot) => {
     const aviso = snapshot.val();
