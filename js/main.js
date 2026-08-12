@@ -116,10 +116,7 @@ function crearCard(id, aviso) {
   a.className = 'card';
 
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
-  const stampClass = aviso.estado === 'encontrado' ? 'encontrado' : aviso.categoria;
-  const stampTexto = aviso.estado === 'encontrado'
-    ? (aviso.categoria === 'mascota' ? 'ENCONTRADO' : 'ENCONTRADO/A')
-    : (aviso.categoria === 'mascota' ? 'PERDIDO' : 'SE BUSCA');
+  const { stampClass, stampTexto } = calcularSello(aviso);
 
   a.innerHTML = `
     <div class="tape"></div>
@@ -141,6 +138,28 @@ function crearCard(id, aviso) {
     </div>
   `;
   return a;
+}
+
+// Calcula el texto y color del sello según categoría (persona/mascota),
+// tipo (perdido = lo estoy buscando / encontrado = lo tengo yo) y estado
+// (buscando = sigue activo / encontrado = ya se resolvió el caso).
+// aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
+function calcularSello(aviso) {
+  const esMascota = aviso.categoria === 'mascota';
+  const esTipoEncontrado = aviso.tipo === 'encontrado';
+  const resuelto = aviso.estado === 'encontrado';
+
+  if (esTipoEncontrado) {
+    if (resuelto) {
+      return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
+    }
+    return { stampClass: 'encontrado', stampTexto: esMascota ? 'HALLADO' : 'HALLADO/A' };
+  }
+
+  if (resuelto) {
+    return { stampClass: 'encontrado', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+  }
+  return { stampClass: esMascota ? 'mascota' : 'persona', stampTexto: esMascota ? 'PERDIDO' : 'SE BUSCA' };
 }
 
 // Arma el texto de ubicación combinando ciudad/municipio, sector y
