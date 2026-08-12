@@ -162,11 +162,12 @@ button, .btn{
 }
 
 .card .foto{
-  width:100%; aspect-ratio:4/3; object-fit:cover;
+  display:block; width:100%; height:auto;
   background:var(--line);
   border-bottom:1px solid var(--line);
 }
 .card .foto.sin-foto{
+  aspect-ratio:4/3;
   display:flex; align-items:center; justify-content:center;
   font-family:'Barlow Condensed',sans-serif; font-size:15px; color:var(--muted);
   text-transform:uppercase; letter-spacing:0.05em;
@@ -257,7 +258,7 @@ button, .btn{
 
 .poster{ background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; position:relative; }
 .poster .tape{ position:absolute; top:-8px; left:50%; width:90px; height:26px; background:rgba(255,255,255,0.55); border:1px solid rgba(0,0,0,0.06); transform:translateX(-50%) rotate(-1.5deg); z-index:2; }
-.poster .foto{ width:100%; max-height:420px; object-fit:cover; background:var(--line); }
+.poster .foto{ display:block; width:100%; height:auto; background:var(--line); }
 .poster .body{ padding:22px 22px 24px; }
 .poster .nombre{ font-size:38px; margin-bottom:2px; }
 .poster .meta{ display:flex; gap:14px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
