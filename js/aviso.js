@@ -31,19 +31,35 @@ function cargarAviso() {
 }
 
 function renderAviso(aviso) {
-  const encontrado = aviso.estado === 'encontrado';
-  const stampTexto = encontrado
-    ? (aviso.categoria === 'mascota' ? 'ENCONTRADO' : 'ENCONTRADO/A')
-    : (aviso.categoria === 'mascota' ? 'PERDIDO' : 'SE BUSCA');
+  const resuelto = aviso.estado === 'encontrado';
+  const esMascota = aviso.categoria === 'mascota';
+  const esTipoEncontrado = aviso.tipo === 'encontrado';
+
+  let stampTexto, stampClassFinal;
+  if (esTipoEncontrado) {
+    stampClassFinal = 'encontrado';
+    stampTexto = resuelto ? (esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A') : (esMascota ? 'HALLADO' : 'HALLADO/A');
+  } else if (resuelto) {
+    stampClassFinal = 'encontrado';
+    stampTexto = esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A';
+  } else {
+    stampClassFinal = aviso.categoria;
+    stampTexto = esMascota ? 'PERDIDO' : 'SE BUSCA';
+  }
 
   const mensajeWa = encodeURIComponent(
     `Hola, vi tu aviso de "${aviso.nombre}" en Se Busca y quería contarte algo al respecto.`
   );
 
+  const textoBanner = esTipoEncontrado ? '✓ Marcado como entregado/reclamado' : '✓ Marcado como encontrado/a';
+  const textoBotonResolver = esTipoEncontrado
+    ? (esMascota ? 'Marcar como entregado' : 'Marcar como entregado/a')
+    : (esMascota ? 'Marcar como encontrado' : 'Marcar como encontrado/a');
+
   contenedorAviso.innerHTML = `
     <div class="poster">
       <div class="tape"></div>
-      <div class="stamp ${encontrado ? 'encontrado' : aviso.categoria}">${stampTexto}</div>
+      <div class="stamp ${stampClassFinal}">${stampTexto}</div>
       ${aviso.imagenBase64
         ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}">`
         : ''}
@@ -57,7 +73,7 @@ function renderAviso(aviso) {
         </div>
         ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
 
-        ${encontrado ? `<div class="encontrado-banner">✓ Marcado como encontrado/a</div>` : ''}
+        ${resuelto ? `<div class="encontrado-banner">${textoBanner}</div>` : ''}
 
         ${aviso.whatsapp
           ? `<a class="whatsapp-btn" target="_blank" rel="noopener"
@@ -67,7 +83,7 @@ function renderAviso(aviso) {
           : `<div class="sin-whatsapp-aviso">Quien publicó este aviso no dejó WhatsApp. Dejale un mensaje en los comentarios de abajo para contactarlo.</div>`}
         ${aviso.redSocial ? `<div class="hint" style="margin-bottom:14px;">También en: ${escapeHtml(aviso.redSocial)}</div>` : ''}
 
-        ${!encontrado ? `<button class="marcar-encontrado" id="btnEncontrado">Marcar como ${aviso.categoria === 'mascota' ? 'encontrado' : 'encontrado/a'}</button>` : ''}
+        ${!resuelto ? `<button class="marcar-encontrado" id="btnEncontrado">${textoBotonResolver}</button>` : ''}
       </div>
     </div>
   `;
@@ -75,7 +91,10 @@ function renderAviso(aviso) {
   const btnEncontrado = document.getElementById('btnEncontrado');
   if (btnEncontrado) {
     btnEncontrado.addEventListener('click', () => {
-      if (confirm('¿Confirmás que ya apareció? Esto va a marcar el aviso como resuelto para todos.')) {
+      const pregunta = esTipoEncontrado
+        ? '¿Confirmás que ya lo entregaste o se lo reclamó su familia/dueño? Esto va a marcar el aviso como resuelto para todos.'
+        : '¿Confirmás que ya apareció? Esto va a marcar el aviso como resuelto para todos.';
+      if (confirm(pregunta)) {
         db.ref('avisos/' + avisoId + '/estado').set('encontrado');
       }
     });
