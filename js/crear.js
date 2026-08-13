@@ -8,6 +8,10 @@
 let categoriaSeleccionada = 'persona';
 let tipoSeleccionado = 'perdido';
 let imagenBase64 = null;
+// Versión chica de la misma foto, solo para las tarjetas del listado
+// principal — así abrir la página con muchos avisos no obliga a bajarse
+// la foto grande de cada uno (esa se sigue usando en la página de detalle).
+let imagenMiniBase64 = null;
 
 // Clave usada para guardar el progreso del formulario en este navegador,
 // por si se recarga la página o se cierra por error antes de publicar.
@@ -160,14 +164,8 @@ function manejarSeleccionFoto(file) {
   reader.onload = (e) => {
     const img = new Image();
     img.onload = () => {
-      const maxWidth = 900;
-      const scale = Math.min(1, maxWidth / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      imagenBase64 = canvas.toDataURL('image/jpeg', 0.72);
+      imagenBase64 = redimensionarADataURL(img, 900, 0.72);
+      imagenMiniBase64 = redimensionarADataURL(img, 360, 0.6);
 
       fotoDrop.innerHTML = `<img src="${imagenBase64}" alt="Vista previa">
         <input type="file" id="fotoInput" accept="image/*">`;
@@ -178,6 +176,20 @@ function manejarSeleccionFoto(file) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+// Reescala una imagen ya cargada a un ancho máximo y la devuelve como JPEG
+// en base64. Se usa dos veces por cada foto: una versión grande (para la
+// página de detalle) y una chica y más comprimida (para las tarjetas del
+// listado, que se cargan todas juntas).
+function redimensionarADataURL(img, maxWidth, calidad) {
+  const scale = Math.min(1, maxWidth / img.width);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', calidad);
 }
 
 fotoInput.addEventListener('change', () => manejarSeleccionFoto(fotoInput.files[0]));
@@ -203,7 +215,8 @@ function guardarBorrador() {
       whatsapp: document.getElementById('whatsapp').value,
       redSocial: document.getElementById('redSocial').value,
       edad: document.getElementById('edad').value,
-      imagenBase64
+      imagenBase64,
+      imagenMiniBase64
     };
     localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
   } catch (err) {
@@ -258,6 +271,10 @@ function restaurarBorrador() {
 
   if (borrador.imagenBase64) {
     imagenBase64 = borrador.imagenBase64;
+    // Los borradores guardados antes de que existiera la miniatura no la
+    // van a tener: en ese caso se usa la foto grande como respaldo, así el
+    // aviso publicado igual queda con algo en el campo imagenMiniBase64.
+    imagenMiniBase64 = borrador.imagenMiniBase64 || borrador.imagenBase64;
     fotoDrop.innerHTML = `<img src="${imagenBase64}" alt="Vista previa">
       <input type="file" id="fotoInput" accept="image/*">`;
     const nuevoInput = document.getElementById('fotoInput');
@@ -322,6 +339,7 @@ form.addEventListener('submit', (e) => {
     whatsapp: whatsappFinal,
     redSocial,
     imagenBase64: imagenBase64 || null,
+    imagenMiniBase64: imagenMiniBase64 || imagenBase64 || null,
     estado: 'buscando',
     fecha: Date.now()
   };
