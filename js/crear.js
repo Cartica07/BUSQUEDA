@@ -355,16 +355,16 @@ form.addEventListener('submit', (e) => {
   }
 
   // La foto grande (la que se ve en el detalle del aviso) ya no se guarda
-  // como texto dentro de la base de datos — eso es lo que hacía tan pesada
-  // la carga inicial de la página principal. Ahora se sube como archivo a
-  // Firebase Storage y solo se guarda su URL, que pesa unos pocos bytes.
-  // La miniatura sigue viviendo en la base de datos porque es chica y la
+  // adentro del mismo registro que usa el listado principal — eso es lo
+  // que hacía tan pesada la carga inicial de la página principal. Primero
+  // se intenta subir a Firebase Storage (si está activado en el proyecto)
+  // y solo se guarda su URL, que pesa unos pocos bytes. Si Storage no está
+  // disponible (por ejemplo, todavía no se activó el plan Blaze), la foto
+  // grande se guarda igual, pero en un nodo APARTE de Realtime Database
+  // ("avisos_fotos"), para que nunca viaje junto con el listado — solo se
+  // pide cuando alguien entra al detalle de ESE aviso puntual.
+  // La miniatura sigue viviendo en el registro liviano porque es chica y la
   // usan tanto las tarjetas del listado como la búsqueda por foto.
-  //
-  // Si por algún motivo falla la subida a Storage (por ejemplo, todavía no
-  // está activado en el proyecto), el aviso igual se publica usando la
-  // foto grande en base64 como antes, para no dejar a nadie sin poder
-  // publicar en medio de una emergencia.
   let yaResolvio = false;
   const avisoLento = setTimeout(() => {
     if (!yaResolvio) {
@@ -379,12 +379,21 @@ form.addEventListener('submit', (e) => {
       nuevoAviso.imagenURL = url;
     })
     .catch((err) => {
-      console.warn('No se pudo subir la foto a Storage, se guarda como antes:', err);
-      nuevoAviso.imagenBase64 = imagenBase64;
+      console.warn('No se pudo subir la foto a Storage, se guarda aparte en la base de datos:', err);
     })
     .then(() => {
       btnSubmit.textContent = 'Publicando...';
-      return db.ref('avisos').push(nuevoAviso);
+      // Se reserva la key de antemano (push() sin datos genera el id al
+      // instante, sin escribir nada todavía) para poder guardar en una
+      // sola operación atómica el registro liviano en "avisos" y, si hizo
+      // falta el respaldo, la foto pesada en "avisos_fotos".
+      const nuevaRef = db.ref('avisos').push();
+      const actualizaciones = {};
+      actualizaciones['avisos/' + nuevaRef.key] = nuevoAviso;
+      if (!nuevoAviso.imagenURL) {
+        actualizaciones['avisos_fotos/' + nuevaRef.key] = { imagenBase64 };
+      }
+      return db.ref().update(actualizaciones).then(() => nuevaRef);
     })
     .then((ref) => {
       yaResolvio = true;
