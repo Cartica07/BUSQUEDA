@@ -20,6 +20,131 @@ const tipoToggle = document.getElementById('tipoToggle');
 const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
+const inputBuscarFoto = document.getElementById('buscarFotoInput');
+const btnBuscarFoto = document.getElementById('btnBuscarFoto');
+const fotoBusquedaBar = document.getElementById('fotoBusquedaBar');
+const fotoBusquedaPreview = document.getElementById('fotoBusquedaPreview');
+const fotoBusquedaTexto = document.getElementById('fotoBusquedaTexto');
+const fotoBusquedaCancelar = document.getElementById('fotoBusquedaCancelar');
+
+// ------------------------------------------------------------
+// Búsqueda por foto (coincidencias visuales)
+// ------------------------------------------------------------
+// Todo esto corre en el navegador de cada persona, con un modelo de IA
+// (MobileNet vía TensorFlow.js) que se trae de un CDN recién cuando alguien
+// usa esta función por primera vez — así no le pesa la carga inicial a
+// quienes solo navegan la lista normal.
+//
+// Convierte cada foto en un vector de números ("huella" de colores/formas/
+// textura) y compara por similitud coseno. Sirve como sugerencia de
+// parecido visual, NO como identificación certera de que sea la misma
+// persona o mascota.
+let modoBusquedaFoto = false;
+let vectorFotoBuscada = null;
+let modeloIA = null;
+let promesaModeloIA = null;
+const cacheEmbeddings = {}; // id del aviso -> vector ya calculado (evita recalcular en cada búsqueda)
+
+function cargarModeloIA() {
+  if (modeloIA) return Promise.resolve(modeloIA);
+  if (promesaModeloIA) return promesaModeloIA;
+
+  function cargarScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('No se pudo cargar ' + src));
+      document.body.appendChild(s);
+    });
+  }
+
+  promesaModeloIA = cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js')
+    .then(() => cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js'))
+    .then(() => mobilenet.load({ version: 2, alpha: 1.0 }))
+    .then((modelo) => { modeloIA = modelo; return modelo; });
+
+  return promesaModeloIA;
+}
+
+function cargarImagen(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen'));
+    img.src = src;
+  });
+}
+
+async function obtenerEmbedding(id, base64) {
+  if (cacheEmbeddings[id]) return cacheEmbeddings[id];
+  const img = await cargarImagen(base64);
+  const tensor = modeloIA.infer(img, true);
+  const datos = await tensor.data();
+  tensor.dispose();
+  cacheEmbeddings[id] = datos;
+  return datos;
+}
+
+function similitudCoseno(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+inputBuscarFoto.addEventListener('change', () => {
+  const file = inputBuscarFoto.files[0];
+  if (file) iniciarBusquedaPorFoto(file);
+});
+
+fotoBusquedaCancelar.addEventListener('click', () => {
+  salirDeBusquedaPorFoto();
+});
+
+async function iniciarBusquedaPorFoto(file) {
+  modoBusquedaFoto = true;
+  vectorFotoBuscada = null;
+  filtroNombre = '';
+  inputBuscar.value = '';
+  inputBuscar.disabled = true;
+  btnBuscarFoto.classList.add('activo');
+  tipoToggle.classList.add('deshabilitado');
+
+  const urlPreview = URL.createObjectURL(file);
+  fotoBusquedaPreview.src = urlPreview;
+  fotoBusquedaBar.style.display = 'flex';
+  fotoBusquedaTexto.textContent = 'Analizando la foto...';
+  render();
+
+  try {
+    await cargarModeloIA();
+    const img = await cargarImagen(urlPreview);
+    const tensor = modeloIA.infer(img, true);
+    vectorFotoBuscada = await tensor.data();
+    tensor.dispose();
+    fotoBusquedaTexto.textContent = 'Mostrando avisos parecidos a esta foto, de más a menos parecido.';
+    render();
+  } catch (err) {
+    console.error('Error en la búsqueda por foto:', err);
+    fotoBusquedaTexto.textContent = 'No se pudo analizar la foto. Probá con otra o intentá de nuevo.';
+  }
+}
+
+function salirDeBusquedaPorFoto() {
+  modoBusquedaFoto = false;
+  vectorFotoBuscada = null;
+  inputBuscar.disabled = false;
+  btnBuscarFoto.classList.remove('activo');
+  tipoToggle.classList.remove('deshabilitado');
+  fotoBusquedaBar.style.display = 'none';
+  inputBuscarFoto.value = '';
+  render();
+}
 
 // ------------------------------------------------------------
 // Carga rápida en 3 etapas, para que la página se sienta rápida
@@ -170,6 +295,8 @@ function categoriaFiltro(aviso) {
 }
 
 function render() {
+  if (modoBusquedaFoto) { renderPorFoto(); return; }
+
   const coincideFiltrosBase = ([id, a]) =>
     (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
@@ -204,7 +331,78 @@ function render() {
   });
 }
 
-function crearCard(id, aviso) {
+// Modo "búsqueda por foto": ignora las pestañas de Perdidos/Encontrados/
+// Resueltos (busca en todas a la vez, porque la mascota o persona que
+// subieron de foto podría estar reportada en cualquiera de las 3) pero
+// sigue respetando los filtros de categoría y ubicación. Ordena todos los
+// avisos con foto por parecido visual y muestra los más parecidos primero.
+let tokenRenderFoto = 0;
+async function renderPorFoto() {
+  if (!vectorFotoBuscada) {
+    grid.innerHTML = '<p class="loading-msg">Analizando la foto…</p>';
+    emptyState.style.display = 'none';
+    return;
+  }
+
+  // Si mientras se está calculando esto llega un dato nuevo de Firebase (o
+  // la persona sube otra foto), esta pasada queda vieja: se descarta su
+  // resultado en vez de pisar lo que ya se está mostrando.
+  const miToken = ++tokenRenderFoto;
+
+  const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
+    a.imagenBase64 &&
+    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
+    (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
+    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
+  );
+
+  contadorPerdidos.textContent = '–';
+  contadorEncontrados.textContent = '–';
+  contadorResueltos.textContent = '–';
+
+  if (candidatos.length === 0) {
+    grid.innerHTML = '';
+    contador.textContent = '0 avisos';
+    emptyState.style.display = 'block';
+    return;
+  }
+
+  grid.innerHTML = '<p class="loading-msg">Buscando coincidencias visuales…</p>';
+
+  const conSimilitud = [];
+  for (const [id, aviso] of candidatos) {
+    // Si alguna foto puntual falla al analizarse (formato raro, imagen
+    // corrupta, etc.), se la salta en vez de cortar toda la búsqueda.
+    try {
+      const emb = await obtenerEmbedding(id, aviso.imagenBase64);
+      const score = similitudCoseno(vectorFotoBuscada, emb);
+      conSimilitud.push({ id, aviso, score });
+    } catch (err) {
+      console.warn('No se pudo comparar el aviso', id, err);
+    }
+    if (miToken !== tokenRenderFoto) return; // superado por una búsqueda más nueva
+  }
+
+  if (!modoBusquedaFoto || !vectorFotoBuscada || miToken !== tokenRenderFoto) return;
+
+  conSimilitud.sort((a, b) => b.score - a.score);
+  const mejores = conSimilitud.slice(0, 30);
+
+  contador.textContent = mejores.length + (mejores.length === 1 ? ' coincidencia' : ' coincidencias');
+  grid.innerHTML = '';
+
+  if (mejores.length === 0) {
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  mejores.forEach(({ id, aviso, score }) => {
+    grid.appendChild(crearCard(id, aviso, score));
+  });
+}
+
+function crearCard(id, aviso, similitud) {
   const a = document.createElement('a');
   a.href = `aviso.html?id=${id}`;
   a.className = 'card';
@@ -228,6 +426,7 @@ function crearCard(id, aviso) {
           ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
         : `<div class="foto sin-foto">Sin foto</div>`}
         ${yaResuelto ? `<div class="ribbon-aparecio">${textoRibbon}</div>` : ''}
+        ${typeof similitud === 'number' ? `<div class="badge-similitud">${Math.round(similitud * 100)}% parecido</div>` : ''}
       </div>
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
