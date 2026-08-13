@@ -49,9 +49,17 @@
 
     <div class="field">
       <label>¿Qué estás reportando?</label>
-      <div class="categoria-toggle">
+      <div class="categoria-toggle" id="tipoToggleForm">
         <button type="button" class="active" data-cat="mascota" data-tipo="perdido">Mascota perdida</button>
         <button type="button" data-cat="mascota" data-tipo="encontrado">Mascota encontrada</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>¿Es perro o gato? <span style="font-weight:400;color:var(--muted);">(opcional, pero ayuda a que la busquen más fácil)</span></label>
+      <div class="categoria-toggle especie-toggle" id="especieToggleForm">
+        <button type="button" data-especie="perro">Perro</button>
+        <button type="button" data-especie="gato">Gato</button>
       </div>
     </div>
 
