@@ -84,6 +84,87 @@ function escucharAvisos() {
   });
 }
 
+// ---------- Migración de avisos viejos ----------
+// Los avisos publicados antes de separar la foto grande en su propio nodo
+// ("avisos_fotos") todavía tienen la foto completa embebida directamente
+// en el registro liviano que se usa para armar el listado principal — por
+// eso el listado sigue pesando lo mismo aunque los avisos NUEVOS ya no
+// tengan ese problema. Esto recorre los avisos existentes una sola vez y,
+// para cada uno que todavía tenga "imagenBase64" pegado en el registro
+// liviano, genera la miniatura que le falta y mueve la foto grande a
+// "avisos_fotos", dejando el registro liviano realmente liviano.
+const btnMigrarFotos = document.getElementById('btnMigrarFotos');
+const migracionEstado = document.getElementById('migracionEstado');
+
+if (btnMigrarFotos) {
+  btnMigrarFotos.addEventListener('click', () => migrarFotosAntiguas());
+}
+
+function redimensionarADataURL(img, maxWidth, calidad) {
+  const scale = Math.min(1, maxWidth / img.width);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', calidad);
+}
+
+function cargarImagen(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('No se pudo decodificar la imagen'));
+    img.src = dataUrl;
+  });
+}
+
+async function migrarFotosAntiguas() {
+  const pendientes = Object.entries(todosLosAvisos)
+    .filter(([, aviso]) => aviso.imagenBase64);
+
+  if (pendientes.length === 0) {
+    migracionEstado.textContent = 'No hay avisos viejos por migrar — todo liviano ya.';
+    return;
+  }
+
+  if (!confirm(`Se van a migrar ${pendientes.length} aviso(s). Esto puede tardar un rato y no se puede deshacer. ¿Continuar?`)) {
+    return;
+  }
+
+  btnMigrarFotos.disabled = true;
+  let ok = 0;
+  let fallidos = 0;
+
+  for (let i = 0; i < pendientes.length; i++) {
+    const [id, aviso] = pendientes[i];
+    migracionEstado.textContent = `Migrando ${i + 1}/${pendientes.length}...`;
+    try {
+      const fotoGrande = aviso.imagenBase64;
+      // Si el aviso no tenía miniatura (avisos muy viejos, de antes de que
+      // existiera ese campo), se genera ahora desde la foto grande.
+      let mini = aviso.imagenMiniBase64;
+      if (!mini) {
+        const img = await cargarImagen(fotoGrande);
+        mini = redimensionarADataURL(img, 360, 0.6);
+      }
+
+      const actualizaciones = {};
+      actualizaciones['avisos/' + id + '/imagenMiniBase64'] = mini;
+      actualizaciones['avisos/' + id + '/imagenBase64'] = null; // la borra del registro liviano
+      actualizaciones['avisos_fotos/' + id] = { imagenBase64: fotoGrande };
+      await db.ref().update(actualizaciones);
+      ok++;
+    } catch (err) {
+      console.error('No se pudo migrar el aviso', id, err);
+      fallidos++;
+    }
+  }
+
+  btnMigrarFotos.disabled = false;
+  migracionEstado.textContent = `Listo: ${ok} migrado(s)` + (fallidos ? `, ${fallidos} con error (revisá la consola).` : '.');
+}
+
 tabsCategoriaAdmin.addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
