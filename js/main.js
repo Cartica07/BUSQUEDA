@@ -369,11 +369,12 @@ function render() {
   });
 }
 
-// Modo "búsqueda por foto": compara contra TODOS los avisos de la pestaña
-// "Perdidos" (los que la gente sigue buscando activamente), sin importar
-// cuál esté seleccionada en pantalla — no tiene sentido comparar contra
-// avisos ya resueltos o encontrados por otra persona. Sigue respetando los
-// filtros de categoría (persona/mascota) y ubicación.
+// Modo "búsqueda por foto": compara contra los avisos de "Perdidos" Y
+// "Encontrados por otras personas" (los que siguen activos, sea porque su
+// dueño los sigue buscando o porque alguien los tiene y no sabe de quién
+// son), sin importar cuál pestaña esté seleccionada en pantalla. Se
+// descartan los ya resueltos porque esos ya no están en búsqueda. Sigue
+// respetando los filtros de categoría (persona/mascota) y ubicación.
 let tokenRenderFoto = 0;
 async function renderPorFoto() {
   if (!vectorFotoBuscada) {
@@ -387,12 +388,14 @@ async function renderPorFoto() {
   // resultado en vez de pisar lo que ya se está mostrando.
   const miToken = ++tokenRenderFoto;
 
-  // Solo compara contra los avisos de "Perdidos" (los que la gente todavía
-  // está buscando) — no tiene sentido comparar contra los ya resueltos ni
-  // contra los que reportó otra persona como encontrados.
+  // Compara contra los avisos de "Perdidos" y "Encontrados por otras
+  // personas" — tiene sentido buscar en ambos, porque la mascota/persona
+  // de la foto puede estar reportada como perdida por su dueño O como
+  // encontrada por alguien que la tiene. Se descartan los ya resueltos
+  // ("Ya encontrado por los dueños"), porque esos ya no están en búsqueda.
   const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
     a.imagenBase64 &&
-    categoriaFiltro(a) === 'perdido' &&
+    (categoriaFiltro(a) === 'perdido' || categoriaFiltro(a) === 'encontrado') &&
     (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
@@ -446,7 +449,7 @@ async function renderPorFoto() {
   conSimilitud.sort((a, b) => b.score - a.score);
   const mejores = conSimilitud.slice(0, 30);
 
-  fotoBusquedaTexto.textContent = 'Mostrando avisos de "Perdidos" parecidos a esta foto, de más a menos parecido.';
+  fotoBusquedaTexto.textContent = 'Mostrando avisos de "Perdidos" y "Encontrados" parecidos a esta foto, de más a menos parecido.';
   contador.textContent = mejores.length + (mejores.length === 1 ? ' coincidencia' : ' coincidencias');
   grid.innerHTML = '';
 
