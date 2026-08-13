@@ -74,8 +74,13 @@ function cargarAviso() {
     yaLlego = true;
     clearTimeout(avisoLento);
     const aviso = snapshot.val();
-    if (!aviso) {
-      contenedorAviso.innerHTML = `<p>Este aviso ya no existe. <a href="index.html">Volver al inicio</a></p>`;
+    if (!aviso || aviso.categoria === 'persona') {
+      // Los avisos de personas ya no se muestran en esta página (se
+      // manejan aparte); si alguien llega acá con un link viejo, se le
+      // avisa en vez de mostrarle algo roto o a medias.
+      contenedorAviso.innerHTML = aviso
+        ? `<p>Este aviso ya no está disponible en esta página. <a href="index.html">Volver al inicio</a></p>`
+        : `<p>Este aviso ya no existe. <a href="index.html">Volver al inicio</a></p>`;
       chatSection.style.display = 'none';
       return;
     }
@@ -133,29 +138,26 @@ function mostrarErrorDeCarga() {
 
 function renderAviso(aviso) {
   const resuelto = aviso.estado === 'encontrado';
-  const esMascota = aviso.categoria === 'mascota';
   const esTipoEncontrado = aviso.tipo === 'encontrado';
 
   let stampTexto, stampClassFinal;
   if (esTipoEncontrado) {
     stampClassFinal = resuelto ? 'encontrado' : 'pendiente';
-    stampTexto = resuelto ? (esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A') : (esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A');
+    stampTexto = resuelto ? 'YA ENTREGADO' : 'ENCONTRADO';
   } else if (resuelto) {
     stampClassFinal = 'encontrado';
-    stampTexto = esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A';
+    stampTexto = 'ENCONTRADO';
   } else {
-    stampClassFinal = aviso.categoria;
-    stampTexto = esMascota ? 'PERDIDO' : 'SE BUSCA';
+    stampClassFinal = 'mascota';
+    stampTexto = 'PERDIDO';
   }
 
   const mensajeWa = encodeURIComponent(
     `Hola, vi tu aviso de "${aviso.nombre}" en Se Busca y quería contarte algo al respecto.`
   );
 
-  const textoBanner = esTipoEncontrado ? '✓ Marcado como entregado/reclamado' : '✓ Marcado como encontrado/a';
-  const textoBotonResolver = esTipoEncontrado
-    ? (esMascota ? 'Marcar como entregado' : 'Marcar como entregado/a')
-    : (esMascota ? 'Marcar como encontrado' : 'Marcar como encontrado/a');
+  const textoBanner = esTipoEncontrado ? '✓ Marcado como entregado/reclamado' : '✓ Marcado como encontrado';
+  const textoBotonResolver = esTipoEncontrado ? 'Marcar como entregado' : 'Marcar como encontrado';
 
   contenedorAviso.innerHTML = `
     <div class="poster">
@@ -167,8 +169,7 @@ function renderAviso(aviso) {
       <div class="body">
         <div class="nombre">${escapeHtml(aviso.nombre)}</div>
         <div class="meta">
-          ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
-          <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
+          <span class="mono">MASCOTA</span>
           ${(aviso.ciudad || aviso.sector || aviso.departamento) ? `<span>📍 ${escapeHtml(lugarTexto(aviso))}</span>` : ''}
           <span class="mono">${formatoFecha(aviso.fecha)}</span>
         </div>
