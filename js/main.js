@@ -396,7 +396,7 @@ async function renderPorFoto() {
   // encontrada por alguien que la tiene. Se descartan los ya resueltos
   // ("Ya encontrado por los dueños"), porque esos ya no están en búsqueda.
   const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
-    a.imagenBase64 &&
+    (a.imagenMiniBase64 || a.imagenBase64) &&
     (categoriaFiltro(a) === 'perdido' || categoriaFiltro(a) === 'encontrado') &&
     (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
@@ -428,7 +428,11 @@ async function renderPorFoto() {
     // Si alguna foto puntual falla al analizarse (formato raro, imagen
     // corrupta, etc.), se la salta en vez de cortar toda la búsqueda.
     try {
-      const emb = await obtenerEmbedding(id, aviso.imagenBase64);
+      // Se usa siempre la miniatura (base64), nunca la foto grande de
+      // Storage: así el análisis no depende de configurar permisos
+      // especiales entre dominios (CORS) para leer píxeles de una imagen
+      // que vive en otro servidor, y de paso es más liviano de procesar.
+      const emb = await obtenerEmbedding(id, aviso.imagenMiniBase64 || aviso.imagenBase64);
       const score = similitudCoseno(vectorFotoBuscada, emb);
       conSimilitud.push({ id, aviso, score });
     } catch (err) {
@@ -486,7 +490,7 @@ function crearCard(id, aviso, similitud) {
       <div class="tape"></div>
       <div class="stamp ${stampClass}">${stampTexto}</div>
       <div class="media-wrap">
-        ${aviso.imagenBase64
+        ${(aviso.imagenMiniBase64 || aviso.imagenBase64)
           ? `<img class="foto" src="${aviso.imagenMiniBase64 || aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}" loading="lazy" decoding="async">`
         : `<div class="foto sin-foto">Sin foto</div>`}
         ${yaResuelto ? `<div class="ribbon-aparecio">${textoRibbon}</div>` : ''}
