@@ -61,7 +61,10 @@ function cargarModeloIA() {
 
   promesaModeloIA = cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js')
     .then(() => cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js'))
-    .then(() => mobilenet.load({ version: 2, alpha: 1.0 }))
+    // alpha 0.5 = versión liviana del modelo. Pierde un poquito de precisión
+    // contra la versión completa (alpha 1.0), pero pesa y calcula mucho
+    // menos — clave para que funcione bien en celulares de gama baja.
+    .then(() => mobilenet.load({ version: 2, alpha: 0.5 }))
     .then((modelo) => { modeloIA = modelo; return modelo; });
 
   return promesaModeloIA;
@@ -77,10 +80,37 @@ function cargarImagen(src) {
   });
 }
 
+// Las fotos de celular suelen venir en resolución enorme (varios miles de
+// píxeles, varios MB) y el modelo solo necesita 224×224 para funcionar.
+// Achicarla ANTES de analizarla es lo que evita que un celular con poca
+// memoria se trabe o que el navegador mate la pestaña: sin esto, cada
+// comparación obligaba a procesar la imagen a tamaño completo.
+function redimensionarImagen(img, maxDim = 224) {
+  const canvas = document.createElement('canvas');
+  canvas.width = maxDim;
+  canvas.height = maxDim;
+  const ctx = canvas.getContext('2d');
+  // "cover": recorta al cuadrado más grande posible centrado, así no se
+  // deforma la imagen al achicarla.
+  const lado = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+  const sx = ((img.naturalWidth || img.width) - lado) / 2;
+  const sy = ((img.naturalHeight || img.height) - lado) / 2;
+  ctx.drawImage(img, sx, sy, lado, lado, 0, 0, maxDim, maxDim);
+  return canvas;
+}
+
+// Deja pasar un instante para que el navegador respire entre imagen e
+// imagen (dibuje, atienda al usuario, etc.), así en celulares de gama
+// baja no se siente "trabado" aunque esté trabajando en el fondo.
+function respirar() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 async function obtenerEmbedding(id, base64) {
   if (cacheEmbeddings[id]) return cacheEmbeddings[id];
   const img = await cargarImagen(base64);
-  const tensor = modeloIA.infer(img, true);
+  const chico = redimensionarImagen(img);
+  const tensor = modeloIA.infer(chico, true);
   const datos = await tensor.data();
   tensor.dispose();
   cacheEmbeddings[id] = datos;
@@ -124,10 +154,11 @@ async function iniciarBusquedaPorFoto(file) {
   try {
     await cargarModeloIA();
     const img = await cargarImagen(urlPreview);
-    const tensor = modeloIA.infer(img, true);
+    const chico = redimensionarImagen(img);
+    const tensor = modeloIA.infer(chico, true);
     vectorFotoBuscada = await tensor.data();
     tensor.dispose();
-    fotoBusquedaTexto.textContent = 'Mostrando avisos parecidos a esta foto, de más a menos parecido.';
+    fotoBusquedaTexto.textContent = 'Buscando coincidencias...';
     render();
   } catch (err) {
     console.error('Error en la búsqueda por foto:', err);
@@ -331,11 +362,11 @@ function render() {
   });
 }
 
-// Modo "búsqueda por foto": ignora las pestañas de Perdidos/Encontrados/
-// Resueltos (busca en todas a la vez, porque la mascota o persona que
-// subieron de foto podría estar reportada en cualquiera de las 3) pero
-// sigue respetando los filtros de categoría y ubicación. Ordena todos los
-// avisos con foto por parecido visual y muestra los más parecidos primero.
+// Modo "búsqueda por foto": compara contra TODOS los avisos de la pestaña
+// "Perdidos" (los que la gente sigue buscando activamente), sin importar
+// cuál esté seleccionada en pantalla — no tiene sentido comparar contra
+// avisos ya resueltos o encontrados por otra persona. Sigue respetando los
+// filtros de categoría (persona/mascota) y ubicación.
 let tokenRenderFoto = 0;
 async function renderPorFoto() {
   if (!vectorFotoBuscada) {
@@ -349,8 +380,12 @@ async function renderPorFoto() {
   // resultado en vez de pisar lo que ya se está mostrando.
   const miToken = ++tokenRenderFoto;
 
+  // Solo compara contra los avisos de "Perdidos" (los que la gente todavía
+  // está buscando) — no tiene sentido comparar contra los ya resueltos ni
+  // contra los que reportó otra persona como encontrados.
   const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
     a.imagenBase64 &&
+    categoriaFiltro(a) === 'perdido' &&
     (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
@@ -369,8 +404,15 @@ async function renderPorFoto() {
 
   grid.innerHTML = '<p class="loading-msg">Buscando coincidencias visuales…</p>';
 
+  // Se compara contra TODOS los avisos de "Perdidos" que coincidan con los
+  // filtros de categoría/ubicación (sin tope), priorizando el orden por
+  // fecha solo para que el mensaje de avance ("comparando X/Y") tenga
+  // sentido mientras corre.
+  const aComparar = [...candidatos].sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
+
   const conSimilitud = [];
-  for (const [id, aviso] of candidatos) {
+  for (let i = 0; i < aComparar.length; i++) {
+    const [id, aviso] = aComparar[i];
     // Si alguna foto puntual falla al analizarse (formato raro, imagen
     // corrupta, etc.), se la salta en vez de cortar toda la búsqueda.
     try {
@@ -381,6 +423,13 @@ async function renderPorFoto() {
       console.warn('No se pudo comparar el aviso', id, err);
     }
     if (miToken !== tokenRenderFoto) return; // superado por una búsqueda más nueva
+
+    // Un respiro cada pocas imágenes: evita que el navegador se sienta
+    // trabado en celulares de gama baja, y de paso muestra avance real.
+    if (i % 3 === 0) {
+      fotoBusquedaTexto.textContent = `Comparando fotos... (${i + 1}/${aComparar.length})`;
+      await respirar();
+    }
   }
 
   if (!modoBusquedaFoto || !vectorFotoBuscada || miToken !== tokenRenderFoto) return;
@@ -388,6 +437,7 @@ async function renderPorFoto() {
   conSimilitud.sort((a, b) => b.score - a.score);
   const mejores = conSimilitud.slice(0, 30);
 
+  fotoBusquedaTexto.textContent = 'Mostrando avisos de "Perdidos" parecidos a esta foto, de más a menos parecido.';
   contador.textContent = mejores.length + (mejores.length === 1 ? ' coincidencia' : ' coincidencias');
   grid.innerHTML = '';
 
