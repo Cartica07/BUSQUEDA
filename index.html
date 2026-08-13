@@ -42,8 +42,20 @@
       <option value="todas">Elige primero el departamento</option>
     </select>
   </div>
-  <div class="search-box">
-    <input type="text" id="buscarNombre" placeholder="Buscalo por el nombre..." autocomplete="off">
+  <div class="search-split">
+    <div class="search-box">
+      <input type="text" id="buscarNombre" placeholder="Buscalo por el nombre..." autocomplete="off">
+    </div>
+    <label class="search-box--foto" id="btnBuscarFoto" for="buscarFotoInput" title="Buscar por parecido de foto">
+      <span class="search-foto-icon">📷</span>
+      <span class="search-foto-texto">Buscar por foto</span>
+      <input type="file" id="buscarFotoInput" accept="image/*" hidden>
+    </label>
+  </div>
+  <div class="foto-busqueda-bar" id="fotoBusquedaBar" style="display:none">
+    <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
+    <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
+    <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
   </div>
   <div class="tipo-toggle" id="tipoToggle">
     <button class="tipo-btn active" data-tipo="perdido">
