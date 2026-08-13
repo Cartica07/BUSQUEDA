@@ -32,7 +32,7 @@
 
 <div class="form-wrap">
   <h1>Publicar aviso o foto</h1>
-  <p class="lead">Sube el aviso de la persona o mascota desaparecida o encontrada. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
+  <p class="lead">Sube el aviso de la mascota desaparecida o encontrada. Si dejas tu WhatsApp, va a quedar visible para que cualquiera pueda escribirte; si no, también pueden contactarte por los comentarios de la publicación.</p>
 
   <div class="error-msg" id="errorMsg"></div>
 
@@ -44,27 +44,20 @@
         <input type="file" id="fotoInput" accept="image/jpeg,image/png,image/webp,image/jpg" required>
       </div>
       <div class="hint">Sube el aviso o foto de búsqueda</div>
-      <div class="form-recomendacion">📋 Se recomienda rellenar el siguiente formulario para aumentar las probabilidades de encontrar o que encuentren a la persona o mascota perdida.</div>
+      <div class="form-recomendacion">📋 Se recomienda rellenar el siguiente formulario para aumentar las probabilidades de encontrar a la mascota perdida.</div>
     </div>
 
     <div class="field">
       <label>¿Qué estás reportando?</label>
       <div class="categoria-toggle">
-        <button type="button" class="active" data-cat="persona" data-tipo="perdido">Persona perdida</button>
-        <button type="button" data-cat="mascota" data-tipo="perdido">Mascota perdida</button>
-        <button type="button" data-cat="persona" data-tipo="encontrado">Persona encontrada</button>
+        <button type="button" class="active" data-cat="mascota" data-tipo="perdido">Mascota perdida</button>
         <button type="button" data-cat="mascota" data-tipo="encontrado">Mascota encontrada</button>
       </div>
     </div>
 
     <div class="field">
-      <label id="labelNombre">Nombre de la persona</label>
+      <label id="labelNombre">Nombre de la mascota</label>
       <input type="text" id="nombre" placeholder="">
-    </div>
-
-    <div class="field" id="campoEdad">
-      <label id="labelEdad">Edad (opcional)</label>
-      <input type="text" id="edad" placeholder="">
     </div>
 
     <div class="field">
