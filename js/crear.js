@@ -11,6 +11,7 @@
 // categoría (el listado principal, el panel de admin, etc.).
 const categoriaSeleccionada = 'mascota';
 let tipoSeleccionado = 'perdido';
+let especieSeleccionada = null; // 'perro' | 'gato' | null (opcional)
 let imagenBase64 = null;
 // Versión chica de la misma foto, solo para las tarjetas del listado
 // principal — así abrir la página con muchos avisos no obliga a bajarse
@@ -25,7 +26,8 @@ const BORRADOR_KEY = 'busqueda_borrador_aviso';
 // con datos todavía incompletos.
 let restaurandoBorrador = false;
 
-const btnsCategoria = document.querySelectorAll('.categoria-toggle button');
+const btnsCategoria = document.querySelectorAll('#tipoToggleForm button');
+const btnsEspecie = document.querySelectorAll('#especieToggleForm button');
 const labelNombre = document.getElementById('labelNombre');
 const labelDepartamento = document.getElementById('labelDepartamento');
 const labelMunicipio = document.getElementById('labelMunicipio');
@@ -125,6 +127,23 @@ btnsCategoria.forEach(btn => {
   });
 });
 
+// Es opcional, así que a diferencia del toggle de arriba (que siempre
+// tiene uno activo) acá se puede tocar el botón ya activo para
+// deseleccionarlo y dejar la especie sin definir.
+btnsEspecie.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const yaEstabaActivo = btn.classList.contains('active');
+    btnsEspecie.forEach(b => b.classList.remove('active'));
+    if (yaEstabaActivo) {
+      especieSeleccionada = null;
+    } else {
+      btn.classList.add('active');
+      especieSeleccionada = btn.dataset.especie;
+    }
+    guardarBorrador();
+  });
+});
+
 // Adapta etiquetas y placeholders según sea perdido/encontrado, porque no
 // se le pide lo mismo a quien perdió a su mascota que a quien encontró una
 // y no sabe nada de ella.
@@ -194,6 +213,7 @@ function guardarBorrador() {
   try {
     const borrador = {
       tipo: tipoSeleccionado,
+      especie: especieSeleccionada,
       nombre: nombreInput.value,
       departamento: departamentoSelect.value,
       municipio: municipioSelect.value,
@@ -233,9 +253,16 @@ function restaurarBorrador() {
 
   const tipoBorrador = borrador.tipo === 'encontrado' ? 'encontrado' : 'perdido';
   const btnCoincidente = document.querySelector(
-    `.categoria-toggle button[data-tipo="${tipoBorrador}"]`
+    `#tipoToggleForm button[data-tipo="${tipoBorrador}"]`
   );
   if (btnCoincidente) btnCoincidente.click();
+
+  if (borrador.especie === 'perro' || borrador.especie === 'gato') {
+    const btnEspecieCoincidente = document.querySelector(
+      `#especieToggleForm button[data-especie="${borrador.especie}"]`
+    );
+    if (btnEspecieCoincidente) btnEspecieCoincidente.click();
+  }
 
   if (borrador.nombre) nombreInput.value = borrador.nombre;
 
@@ -328,6 +355,7 @@ form.addEventListener('submit', (e) => {
   if (departamento) nuevoAviso.departamento = departamento;
   if (municipio) nuevoAviso.ciudad = municipio;
   if (sector) nuevoAviso.sector = sector;
+  if (especieSeleccionada) nuevoAviso.especie = especieSeleccionada;
 
   function nombrePorDefecto() {
     if (tipoSeleccionado === 'encontrado') return 'Mascota no identificada';
