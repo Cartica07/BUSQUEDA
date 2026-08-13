@@ -13,6 +13,14 @@ const categoriaSeleccionada = 'mascota';
 let tipoSeleccionado = 'perdido';
 let especieSeleccionada = null; // 'perro' | 'gato' | null (opcional)
 let imagenBase64 = null;
+
+// Firebase Storage pide activar el plan de pago (Blaze) para funcionar, y
+// por ahora no se va a usar. En vez de intentarlo igual en cada
+// publicación (perdiendo varios segundos esperando a que falle), se salta
+// directo al respaldo: la foto grande se guarda en el nodo "avisos_fotos"
+// de la base de datos, sin pasar por Storage para nada. El día que se
+// active Storage, alcanza con poner esto en `true` de nuevo.
+const STORAGE_HABILITADO = false;
 // Versión chica de la misma foto, solo para las tarjetas del listado
 // principal — así abrir la página con muchos avisos no obliga a bajarse
 // la foto grande de cada uno (esa se sigue usando en la página de detalle).
@@ -394,21 +402,21 @@ form.addEventListener('submit', (e) => {
     setTimeout(() => reject(new Error('TIMEOUT_CONEXION')), LIMITE_DURO_MS);
   });
 
-  // El intento de subir a Storage tiene su PROPIO límite corto (8s). Esto es
-  // clave: si Storage no está activo en el proyecto (por ejemplo, todavía
-  // no se resolvió lo de facturación/Blaze), el SDK de Firebase no avisa
-  // rápido que falló — se queda reintentando solo por dentro durante hasta
-  // 2 minutos antes de rendirse. Sin este límite propio, esa espera interna
-  // del SDK gana la carrera contra el límite duro de abajo (40s) y el
-  // aviso "falla" ahí SIN llegar nunca a probar el plan B. Con este límite
-  // corto, a los 8 segundos como mucho ya se cae al respaldo en la base de
-  // datos y sigue publicando con tiempo de sobra.
-  const publicacion = conLimiteDeTiempo(subirFotoAStorage(imagenBase64), 8000)
+  // El intento de subir a Storage tiene su PROPIO límite corto (8s), por si
+  // en algún momento se vuelve a activar (ver STORAGE_HABILITADO arriba).
+  // Esto es clave: si Storage no está disponible, el SDK de Firebase no
+  // avisa rápido que falló — se queda reintentando solo por dentro durante
+  // hasta 2 minutos antes de rendirse. Sin este límite propio, esa espera
+  // interna del SDK gana la carrera contra el límite duro de abajo (40s) y
+  // el aviso "falla" ahí SIN llegar nunca a probar el plan B.
+  const publicacion = (STORAGE_HABILITADO
+      ? conLimiteDeTiempo(subirFotoAStorage(imagenBase64), 8000)
+      : Promise.reject(new Error('Storage deshabilitado, se usa el respaldo directo')))
     .then((url) => {
       nuevoAviso.imagenURL = url;
     })
     .catch((err) => {
-      console.warn('No se pudo subir la foto a Storage, se guarda aparte en la base de datos:', err);
+      console.warn('No se sube a Storage, se guarda aparte en la base de datos:', err.message);
     })
     .then(() => {
       if (yaResolvio) return; // el límite duro ya cortó la espera, no seguir
