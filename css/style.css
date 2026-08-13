@@ -610,15 +610,18 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
   .contador{ font-size:11px; }
   .admin-row{ flex-wrap:wrap; }
   .admin-thumb{ width:64px; height:64px; }
-  /* En mobile no entra el texto completo "Buscar por foto" al lado del
-     input de nombre, pero un "Foto" corto sí entra y ya es bastante más
-     claro que dejar solo el ícono de cámara solo. Se le da un ancho fijo
-     al botón para que el input de nombre le ceda ese espacio y no lo
-     tape casi entero. */
-  .search-foto-texto--full{ display:none; }
-  .search-foto-texto--corta{ display:inline; font-size:12.5px; }
-  .search-split{ gap:8px; }
-  .search-box--foto{ flex:0 0 78px; padding:9px 6px; }
+  /* En mobile no entra "Buscar por foto" con el mismo tamaño de letra que
+     en desktop al lado del input de nombre, así que se achica la letra y
+     se le da ancho fijo al botón (el input de nombre le cede ese espacio)
+     para que el texto completo sí se alcance a leer. */
+  .search-split{ gap:6px; }
+  .search-box{ flex:1 1 90px; min-width:0; }
+  .search-box input{ padding:9px 10px 9px 32px; font-size:13px; }
+  .search-box::before{ left:10px; }
+  .search-box--foto{ flex:0 0 130px; padding:9px 6px; gap:4px; }
+  .search-foto-icon{ font-size:13px; }
+  .search-foto-texto--full{ display:inline; font-size:11px; letter-spacing:0.005em; }
+  .search-foto-texto--corta{ display:none; }
   .foto-busqueda-bar{ margin:8px 16px 0; max-width:none; }
   .badge-similitud{ font-size:11px; padding:2px 7px; left:8px; bottom:8px; }
 }
