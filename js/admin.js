@@ -19,12 +19,10 @@ const btnLogout = document.getElementById('btnLogout');
 const adminStats = document.getElementById('adminStats');
 const adminList = document.getElementById('adminList');
 const adminEmptyState = document.getElementById('adminEmptyState');
-const tabsCategoriaAdmin = document.getElementById('tabsCategoriaAdmin');
 const selectEstadoAdmin = document.getElementById('selectEstadoAdmin');
 const buscarAdmin = document.getElementById('buscarAdmin');
 
 let todosLosAvisos = {};
-let filtroCategoria = 'todas';
 let filtroEstado = 'todas';
 let filtroTexto = '';
 let escuchandoAvisos = false;
@@ -165,14 +163,86 @@ async function migrarFotosAntiguas() {
   migracionEstado.textContent = `Listo: ${ok} migrado(s)` + (fallidos ? `, ${fallidos} con error (revisá la consola).` : '.');
 }
 
-tabsCategoriaAdmin.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
-  if (!btn) return;
-  [...tabsCategoriaAdmin.children].forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  filtroCategoria = btn.dataset.cat;
-  render();
-});
+// ---------- Sacar del sitio los avisos de personas ----------
+// Esta página quedó solo para mascotas. Los avisos de personas que
+// hayan quedado de antes de ese cambio ya NO se muestran en el listado
+// público (index.html los filtra), pero acá en el panel de admin sí se
+// siguen viendo (marcados como "PERSONA"), para poder rescatarlos antes
+// de borrarlos del todo. Este botón junta todos esos avisos en un archivo
+// .json descargable (para poder subirlos después a la página aparte que
+// se use solo para personas) y recién después los elimina de esta base
+// de datos, uno por uno, junto con su foto grande si tenía.
+const btnExportarPersonas = document.getElementById('btnExportarPersonas');
+const personasEstado = document.getElementById('personasEstado');
+
+if (btnExportarPersonas) {
+  btnExportarPersonas.addEventListener('click', () => exportarYEliminarPersonas());
+}
+
+async function exportarYEliminarPersonas() {
+  const personas = Object.entries(todosLosAvisos).filter(([, aviso]) => aviso.categoria === 'persona');
+
+  if (personas.length === 0) {
+    personasEstado.textContent = 'No hay avisos de personas — no queda nada por sacar.';
+    return;
+  }
+
+  if (!confirm(
+    `Se van a descargar ${personas.length} aviso(s) de personas a un archivo, y después se van a ELIMINAR de esta base de datos. ` +
+    `Guardá bien el archivo que se descargue antes de confirmar: es la única copia. ¿Continuar?`
+  )) {
+    return;
+  }
+
+  // Primero se arma y descarga el archivo de respaldo. Si algo falla antes
+  // de esto, no se borra nada.
+  const respaldo = {};
+  personas.forEach(([id, aviso]) => { respaldo[id] = aviso; });
+  const blob = new Blob([JSON.stringify(respaldo, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `avisos-personas-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  if (!confirm('¿Ya se descargó el archivo y lo guardaste en un lugar seguro? Confirmá para borrar esos avisos de la base de datos ahora.')) {
+    personasEstado.textContent = 'Cancelado: el archivo se descargó, pero no se borró nada todavía.';
+    return;
+  }
+
+  btnExportarPersonas.disabled = true;
+  let ok = 0;
+  let fallidos = 0;
+
+  for (let i = 0; i < personas.length; i++) {
+    const [id, aviso] = personas[i];
+    personasEstado.textContent = `Eliminando ${i + 1}/${personas.length}...`;
+    try {
+      // Igual que al eliminar desde la lista normal: primero se intenta
+      // borrar la foto grande (Storage o el nodo aparte), y recién
+      // después el aviso en sí.
+      if (aviso.imagenURL && storage) {
+        await storage.refFromURL(aviso.imagenURL).delete().catch(err =>
+          console.warn('No se pudo borrar la foto en Storage del aviso', id, err));
+      } else {
+        await db.ref('avisos_fotos/' + id).remove().catch(err =>
+          console.warn('No se pudo borrar la foto aparte del aviso', id, err));
+      }
+      await db.ref('avisos/' + id).remove();
+      ok++;
+    } catch (err) {
+      console.error('No se pudo eliminar el aviso de persona', id, err);
+      fallidos++;
+    }
+  }
+
+  btnExportarPersonas.disabled = false;
+  personasEstado.textContent = `Listo: ${ok} eliminado(s)` + (fallidos ? `, ${fallidos} con error (revisá la consola).` : '.') +
+    ' El archivo descargado tiene la copia de todos.';
+}
 
 selectEstadoAdmin.addEventListener('change', () => {
   filtroEstado = selectEstadoAdmin.value;
@@ -186,7 +256,6 @@ buscarAdmin.addEventListener('input', () => {
 
 function render() {
   const entradas = Object.entries(todosLosAvisos)
-    .filter(([id, a]) => filtroCategoria === 'todas' || a.categoria === filtroCategoria)
     .filter(([id, a]) => filtroEstado === 'todas' || (a.estado || 'buscando') === filtroEstado)
     .filter(([id, a]) => !filtroTexto || (a.nombre || '').toLowerCase().includes(filtroTexto))
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
