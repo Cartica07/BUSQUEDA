@@ -53,6 +53,15 @@
 
   <div class="admin-stats" id="adminStats"></div>
 
+  <!-- Migración de avisos viejos: los publicados antes de separar la foto
+       grande en su propio nodo siguen pesando enteros dentro del listado
+       principal. Este botón los recorre una sola vez y les genera la
+       miniatura que les falta, moviendo la foto grande aparte. -->
+  <div class="admin-migracion" style="margin:12px 0; padding:12px; border:1px solid var(--line); border-radius:var(--radius);">
+    <button type="button" id="btnMigrarFotos" class="admin-btn">Migrar fotos antiguas (aliviana el listado)</button>
+    <span id="migracionEstado" class="mono" style="margin-left:10px; color:var(--muted);"></span>
+  </div>
+
   <div class="filters">
     <div class="tab-group" id="tabsCategoriaAdmin">
       <button class="tab active" data-cat="todas">Todas</button>
