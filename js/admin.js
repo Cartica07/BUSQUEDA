@@ -175,14 +175,16 @@ function crearFilaAdmin(id, aviso) {
 
   row.querySelector('[data-accion="eliminar"]').addEventListener('click', () => {
     if (confirm(`¿Eliminar definitivamente el aviso de "${aviso.nombre || 'sin nombre'}"? Esta acción no se puede deshacer.`)) {
-      // Primero se intenta borrar la foto grande en Storage (si la tiene).
-      // Si esto falla (por ejemplo, ya no existe, o Storage no está
-      // disponible en esta página) no debe impedir borrar el aviso igual:
-      // por eso el error solo se registra en consola, sin frenar nada.
+      // Primero se intenta borrar la foto grande, ya sea en Storage (si la
+      // tiene) o en el nodo aparte "avisos_fotos" (si se guardó ahí como
+      // respaldo). Si esto falla (por ejemplo, ya no existe) no debe
+      // impedir borrar el aviso igual: por eso el error solo se registra
+      // en consola, sin frenar nada.
       const borrarFoto = (aviso.imagenURL && storage)
         ? storage.refFromURL(aviso.imagenURL).delete().catch(err =>
             console.warn('No se pudo borrar la foto en Storage (se borra el aviso igual):', err))
-        : Promise.resolve();
+        : db.ref('avisos_fotos/' + id).remove().catch(err =>
+            console.warn('No se pudo borrar la foto aparte (se borra el aviso igual):', err));
 
       borrarFoto.then(() => db.ref('avisos/' + id).remove())
         .catch(err => alert('No se pudo eliminar: ' + err.message));
