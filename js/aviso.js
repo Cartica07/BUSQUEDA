@@ -17,6 +17,27 @@ if (!avisoId) {
   escucharComentarios();
 }
 
+// Si venís de la página principal, este aviso ya se bajó como parte de la
+// caché local que arma main.js (sessionStorage). Lo pintamos con eso al
+// instante, sin esperar nada de la red, mientras Firebase confirma/actualiza
+// en segundo plano — así abrir un aviso desde el listado se siente
+// inmediato en vez de tener que volver a esperar la conexión.
+function intentarPintarDesdeCache() {
+  try {
+    const cache = sessionStorage.getItem('busqueda_avisos_cache_v1');
+    if (!cache) return;
+    const avisos = JSON.parse(cache);
+    const aviso = avisos && avisos[avisoId];
+    if (aviso) {
+      renderAviso(aviso);
+      chatSection.style.display = 'block';
+    }
+  } catch (err) {
+    // Caché corrupta o inexistente: no pasa nada, se sigue esperando la
+    // respuesta real de Firebase como siempre.
+  }
+}
+
 // Si venís de la página principal (hay historial de navegación en esta
 // pestaña), usamos el botón "atrás" nativo del navegador en vez de forzar
 // una recarga con el link normal. Cuando el navegador lo permite, esto
@@ -33,7 +54,25 @@ if (linkVolver && window.history.length > 1) {
 }
 
 function cargarAviso() {
-  db.ref('avisos/' + avisoId).on('value', (snapshot) => {
+  intentarPintarDesdeCache();
+
+  const ref = db.ref('avisos/' + avisoId);
+  // Por si esta es una segunda pasada (la persona tocó "Reintentar"),
+  // sacamos cualquier listener viejo antes de poner uno nuevo, para no
+  // terminar con varios escuchando y renderizando por duplicado.
+  ref.off('value');
+
+  // Si a los 9 segundos todavía no llegó nada de Firebase (conexión mala o
+  // caída), en vez de dejar "Cargando aviso..." trabado para siempre, se
+  // muestra un mensaje con botón para reintentar.
+  let yaLlego = false;
+  const avisoLento = setTimeout(() => {
+    if (!yaLlego) mostrarErrorDeCarga();
+  }, 9000);
+
+  ref.on('value', (snapshot) => {
+    yaLlego = true;
+    clearTimeout(avisoLento);
     const aviso = snapshot.val();
     if (!aviso) {
       contenedorAviso.innerHTML = `<p>Este aviso ya no existe. <a href="index.html">Volver al inicio</a></p>`;
@@ -42,7 +81,30 @@ function cargarAviso() {
     }
     renderAviso(aviso);
     chatSection.style.display = 'block';
+  }, (err) => {
+    // Firebase puede avisar de un error (permisos, sin conexión, etc.)
+    // antes incluso de que se cumplan los 9 segundos del timeout.
+    yaLlego = true;
+    clearTimeout(avisoLento);
+    console.error('Error cargando el aviso:', err);
+    mostrarErrorDeCarga();
   });
+}
+
+function mostrarErrorDeCarga() {
+  contenedorAviso.innerHTML = `
+    <div style="text-align:center; padding:30px 16px;">
+      <p class="mono" style="color:var(--muted); margin-bottom:14px;">Está tardando más de lo normal — puede ser tu conexión.</p>
+      <button type="button" id="btnReintentarAviso" class="btn-publicar" style="border:none; cursor:pointer;">Reintentar</button>
+    </div>
+  `;
+  const btn = document.getElementById('btnReintentarAviso');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      contenedorAviso.innerHTML = `<p class="mono" style="color:var(--muted);">Cargando aviso...</p>`;
+      cargarAviso();
+    });
+  }
 }
 
 function renderAviso(aviso) {
