@@ -4,9 +4,9 @@
       ".read": true,
       ".indexOn": ["fecha", "categoria", "ciudad", "estado"],
       "$avisoId": {
-        ".write": "!data.exists()",
-        ".validate": "newData.hasChildren(['categoria','nombre','ciudad','whatsapp','estado','fecha'])",
-        "categoria": { ".validate": "newData.val() === 'persona' || newData.val() === 'mascota'" },
+        ".write": "!data.exists() || auth != null",
+        ".validate": "newData.hasChildren(['categoria','nombre','estado','fecha'])",
+        "categoria": { ".validate": "newData.val() === 'mascota'" },
         "nombre": { ".validate": "newData.isString() && newData.val().length <= 100" },
         "ciudad": { ".validate": "newData.isString() && newData.val().length <= 80" },
         "descripcion": { ".validate": "newData.isString() && newData.val().length <= 1000" },
@@ -26,6 +26,14 @@
             "autor": { ".validate": "!newData.exists() || newData.val().length <= 60" }
           }
         }
+      }
+    },
+    "avisos_fotos": {
+      "$avisoId": {
+        ".read": true,
+        ".write": "!data.exists() || newData.val() === null || auth != null",
+        ".validate": "newData.hasChild('imagenBase64')",
+        "imagenBase64": { ".validate": "newData.val().length <= 700000" }
       }
     }
   }
