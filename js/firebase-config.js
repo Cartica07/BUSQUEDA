@@ -34,3 +34,11 @@ const auth = (typeof firebase.auth === 'function') ? firebase.auth() : null;
 // páginas solo muestra <img> apuntando a URLs de Storage, sin necesitar
 // el SDK para nada.
 const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
+// Por defecto, el SDK reintenta una subida fallida durante 2 minutos antes
+// de rendirse — pensado para conexiones inestables, pero pésimo si Storage
+// directamente no está disponible (por ejemplo, si todavía no se activó el
+// plan Blaze): deja a quien publica esperando en vano. Se baja a 8s, que ya
+// es tiempo de sobra para una red normal, y así el resto del código puede
+// caer rápido al respaldo (guardar la foto en la base de datos) sin que
+// nadie note la diferencia.
+if (storage) storage.setMaxUploadRetryTime(8000);
