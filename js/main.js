@@ -3,7 +3,6 @@
 // ============================================================
 
 let todosLosAvisos = {};
-let filtroCategoria = 'todas';
 let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
@@ -14,7 +13,6 @@ const emptyState = document.getElementById('emptyState');
 const contador = document.getElementById('contador');
 const selectDepartamento = document.getElementById('selectDepartamento');
 const selectCiudad = document.getElementById('selectCiudad');
-const tabsCategoria = document.getElementById('tabsCategoria');
 const inputBuscar = document.getElementById('buscarNombre');
 const tipoToggle = document.getElementById('tipoToggle');
 const contadorPerdidos = document.getElementById('contadorPerdidos');
@@ -202,10 +200,22 @@ function salirDeBusquedaPorFoto() {
 // ------------------------------------------------------------
 const CACHE_KEY = 'busqueda_avisos_cache_v1';
 
+// Esta página es solo de mascotas. Los avisos de personas se maneja aparte
+// (otra página); por las dudas queden avisos viejos de personas todavía
+// en la base de datos, se descartan acá antes de mostrar nada, para que
+// nunca aparezcan mezclados en este listado.
+function soloMascotas(obj) {
+  const resultado = {};
+  Object.entries(obj || {}).forEach(([id, aviso]) => {
+    if (aviso && aviso.categoria !== 'persona') resultado[id] = aviso;
+  });
+  return resultado;
+}
+
 try {
   const cache = sessionStorage.getItem(CACHE_KEY);
   if (cache) {
-    todosLosAvisos = JSON.parse(cache);
+    todosLosAvisos = soloMascotas(JSON.parse(cache));
     actualizarSelectDepartamentos();
     render();
   }
@@ -216,7 +226,7 @@ try {
 // Etapa 2: los más recientes primero, rápido.
 db.ref('avisos').orderByChild('fecha').limitToLast(10).once('value')
   .then((snapshot) => {
-    const recientes = snapshot.val() || {};
+    const recientes = soloMascotas(snapshot.val());
     todosLosAvisos = { ...todosLosAvisos, ...recientes };
     actualizarSelectDepartamentos();
     render();
@@ -227,7 +237,7 @@ db.ref('avisos').orderByChild('fecha').limitToLast(10).once('value')
 // del todo a todosLosAvisos (por eso ya no hace falta mezclar) y
 // deja todo guardado en caché para la próxima visita.
 db.ref('avisos').on('value', (snapshot) => {
-  todosLosAvisos = snapshot.val() || {};
+  todosLosAvisos = soloMascotas(snapshot.val());
   actualizarSelectDepartamentos();
   render();
   try {
@@ -238,15 +248,6 @@ db.ref('avisos').on('value', (snapshot) => {
     // la próxima vez.
     console.warn('No se pudo guardar la caché local (dataset grande):', e);
   }
-});
-
-tabsCategoria.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
-  if (!btn) return;
-  [...tabsCategoria.children].forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  filtroCategoria = btn.dataset.cat;
-  render();
 });
 
 selectDepartamento.addEventListener('change', () => {
@@ -338,7 +339,6 @@ function render() {
   if (modoBusquedaFoto) { renderPorFoto(); return; }
 
   const coincideFiltrosBase = ([id, a]) =>
-    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
     (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
@@ -376,7 +376,7 @@ function render() {
 // dueño los sigue buscando o porque alguien los tiene y no sabe de quién
 // son), sin importar cuál pestaña esté seleccionada en pantalla. Se
 // descartan los ya resueltos porque esos ya no están en búsqueda. Sigue
-// respetando los filtros de categoría (persona/mascota) y ubicación.
+// respetando los filtros de ubicación.
 let tokenRenderFoto = 0;
 async function renderPorFoto() {
   if (!vectorFotoBuscada) {
@@ -398,7 +398,6 @@ async function renderPorFoto() {
   const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
     (a.imagenMiniBase64 || a.imagenBase64) &&
     (categoriaFiltro(a) === 'perdido' || categoriaFiltro(a) === 'encontrado') &&
-    (filtroCategoria === 'todas' || a.categoria === filtroCategoria) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
   );
@@ -499,8 +498,7 @@ function crearCard(id, aviso, similitud) {
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
       <div class="meta">
-        ${aviso.edad ? `<span>${escapeHtml(aviso.edad)}</span>` : ''}
-        <span class="mono">${aviso.categoria === 'mascota' ? 'MASCOTA' : 'PERSONA'}</span>
+        <span class="mono">MASCOTA</span>
       </div>
       ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
       <div class="foot">
@@ -513,28 +511,27 @@ function crearCard(id, aviso, similitud) {
   return a;
 }
 
-// Calcula el texto y color del sello según categoría (persona/mascota),
-// tipo (perdido = lo estoy buscando / encontrado = lo tengo yo) y estado
-// (buscando = sigue activo / encontrado = ya se resolvió el caso).
+// Calcula el texto y color del sello según tipo (perdido = lo estoy
+// buscando / encontrado = lo tengo yo) y estado (buscando = sigue activo /
+// encontrado = ya se resolvió el caso).
 // aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
 function calcularSello(aviso) {
-  const esMascota = aviso.categoria === 'mascota';
   const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
   const resuelto = aviso.estado === 'encontrado';
 
   if (esTipoEncontrado) {
     if (resuelto) {
-      return { stampClass: 'encontrado', stampTexto: esMascota ? 'YA ENTREGADO' : 'YA ENTREGADO/A' };
+      return { stampClass: 'encontrado', stampTexto: 'YA ENTREGADO' };
     }
     // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
     // se note que está pendiente de que su dueño lo reclame.
-    return { stampClass: 'pendiente', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+    return { stampClass: 'pendiente', stampTexto: 'ENCONTRADO' };
   }
 
   if (resuelto) {
-    return { stampClass: 'encontrado', stampTexto: esMascota ? 'ENCONTRADO' : 'ENCONTRADO/A' };
+    return { stampClass: 'encontrado', stampTexto: 'ENCONTRADO' };
   }
-  return { stampClass: esMascota ? 'mascota' : 'persona', stampTexto: esMascota ? 'PERDIDO' : 'SE BUSCA' };
+  return { stampClass: 'mascota', stampTexto: 'PERDIDO' };
 }
 
 // Arma el texto de ubicación combinando ciudad/municipio, sector y
