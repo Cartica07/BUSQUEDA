@@ -329,7 +329,7 @@ form.addEventListener('submit', (e) => {
   }
 
   btnSubmit.disabled = true;
-  btnSubmit.textContent = 'Publicando...';
+  btnSubmit.textContent = 'Subiendo foto...';
 
   const nuevoAviso = {
     categoria: categoriaSeleccionada,
@@ -338,7 +338,6 @@ form.addEventListener('submit', (e) => {
     descripcion,
     whatsapp: whatsappFinal,
     redSocial,
-    imagenBase64: imagenBase64 || null,
     imagenMiniBase64: imagenMiniBase64 || imagenBase64 || null,
     estado: 'buscando',
     fecha: Date.now()
@@ -355,8 +354,17 @@ form.addEventListener('submit', (e) => {
     return categoriaSeleccionada === 'mascota' ? 'Mascota sin nombre' : 'Sin nombre';
   }
 
-  // Si la conexión está lenta o inestable, el guardado puede tardar. Si pasan
-  // más de 12 segundos sin respuesta, avisamos en vez de dejar el botón trabado.
+  // La foto grande (la que se ve en el detalle del aviso) ya no se guarda
+  // como texto dentro de la base de datos — eso es lo que hacía tan pesada
+  // la carga inicial de la página principal. Ahora se sube como archivo a
+  // Firebase Storage y solo se guarda su URL, que pesa unos pocos bytes.
+  // La miniatura sigue viviendo en la base de datos porque es chica y la
+  // usan tanto las tarjetas del listado como la búsqueda por foto.
+  //
+  // Si por algún motivo falla la subida a Storage (por ejemplo, todavía no
+  // está activado en el proyecto), el aviso igual se publica usando la
+  // foto grande en base64 como antes, para no dejar a nadie sin poder
+  // publicar en medio de una emergencia.
   let yaResolvio = false;
   const avisoLento = setTimeout(() => {
     if (!yaResolvio) {
@@ -364,32 +372,46 @@ form.addEventListener('submit', (e) => {
       errorMsg.classList.add('show');
       btnSubmit.textContent = 'Publicando... (esperando conexión)';
     }
-  }, 12000);
+  }, 20000);
 
-  try {
-    db.ref('avisos').push(nuevoAviso)
-      .then((ref) => {
-        yaResolvio = true;
-        clearTimeout(avisoLento);
-        borrarBorrador();
-        window.location.href = `aviso.html?id=${ref.key}`;
-      })
-      .catch((err) => {
-        yaResolvio = true;
-        clearTimeout(avisoLento);
-        console.error('Error al publicar en Firebase:', err);
-        errorMsg.textContent = 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
-        errorMsg.classList.add('show');
-        btnSubmit.disabled = false;
-        btnSubmit.textContent = 'Publicar aviso';
-      });
-  } catch (err) {
-    yaResolvio = true;
-    clearTimeout(avisoLento);
-    console.error('Error inesperado al intentar publicar:', err);
-    errorMsg.textContent = 'Ocurrió un error inesperado. Revisá la consola del navegador (F12) para más detalle.';
-    errorMsg.classList.add('show');
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = 'Publicar aviso';
-  }
+  subirFotoAStorage(imagenBase64)
+    .then((url) => {
+      nuevoAviso.imagenURL = url;
+    })
+    .catch((err) => {
+      console.warn('No se pudo subir la foto a Storage, se guarda como antes:', err);
+      nuevoAviso.imagenBase64 = imagenBase64;
+    })
+    .then(() => {
+      btnSubmit.textContent = 'Publicando...';
+      return db.ref('avisos').push(nuevoAviso);
+    })
+    .then((ref) => {
+      yaResolvio = true;
+      clearTimeout(avisoLento);
+      borrarBorrador();
+      window.location.href = `aviso.html?id=${ref.key}`;
+    })
+    .catch((err) => {
+      yaResolvio = true;
+      clearTimeout(avisoLento);
+      console.error('Error al publicar en Firebase:', err);
+      errorMsg.textContent = 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
+      errorMsg.classList.add('show');
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Publicar aviso o foto';
+    });
 });
+
+// Sube la foto grande (dataURL en base64) a Firebase Storage como archivo
+// JPEG y devuelve su URL pública de descarga. Si el SDK de Storage no está
+// disponible en la página (o no se activó Storage en el proyecto todavía),
+// rechaza la promesa para que quien llama pueda usar el respaldo en base64.
+async function subirFotoAStorage(dataUrl) {
+  if (!storage) throw new Error('Firebase Storage no está disponible');
+  const blob = await (await fetch(dataUrl)).blob();
+  const nombreArchivo = `avisos/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const ref = storage.ref(nombreArchivo);
+  await ref.put(blob, { contentType: 'image/jpeg' });
+  return await ref.getDownloadURL();
+}
