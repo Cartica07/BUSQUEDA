@@ -191,9 +191,11 @@ function salirDeBusquedaPorFoto() {
 //  1) Si ya visitaste la página antes en esta pestaña, se pinta
 //     al instante lo último que se vio (desde sessionStorage),
 //     sin esperar nada de la red.
-//  2) Se pide a Firebase SOLO los avisos más recientes (los 20
+//  2) Se pide a Firebase SOLO los avisos más recientes (los 10
 //     últimos por fecha) y se pintan apenas llegan — es una
-//     consulta chica, así que llega rápido.
+//     consulta chica (los avisos traen foto adentro, así que
+//     pedir de a pocos es lo que más acelera el primer pantallazo),
+//     así que llega rápido.
 //  3) En paralelo, se sigue escuchando el listado COMPLETO en
 //     tiempo real; cuando termina de bajar (y cada vez que algo
 //     cambia), se actualiza la vista y se refresca la caché.
@@ -212,7 +214,7 @@ try {
 }
 
 // Etapa 2: los más recientes primero, rápido.
-db.ref('avisos').orderByChild('fecha').limitToLast(20).once('value')
+db.ref('avisos').orderByChild('fecha').limitToLast(10).once('value')
   .then((snapshot) => {
     const recientes = snapshot.val() || {};
     todosLosAvisos = { ...todosLosAvisos, ...recientes };
@@ -485,7 +487,7 @@ function crearCard(id, aviso, similitud) {
       <div class="stamp ${stampClass}">${stampTexto}</div>
       <div class="media-wrap">
         ${aviso.imagenBase64
-          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}">`
+          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}" loading="lazy" decoding="async">`
         : `<div class="foto sin-foto">Sin foto</div>`}
         ${yaResuelto ? `<div class="ribbon-aparecio">${textoRibbon}</div>` : ''}
         ${typeof similitud === 'number' ? `<div class="badge-similitud">${Math.round(similitud * 100)}% parecido</div>` : ''}
