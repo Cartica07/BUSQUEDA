@@ -487,7 +487,7 @@ function crearCard(id, aviso, similitud) {
       <div class="stamp ${stampClass}">${stampTexto}</div>
       <div class="media-wrap">
         ${aviso.imagenBase64
-          ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}" loading="lazy" decoding="async">`
+          ? `<img class="foto" src="${aviso.imagenMiniBase64 || aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre || '')}" loading="lazy" decoding="async">`
         : `<div class="foto sin-foto">Sin foto</div>`}
         ${yaResuelto ? `<div class="ribbon-aparecio">${textoRibbon}</div>` : ''}
         ${typeof similitud === 'number' ? `<div class="badge-similitud">${Math.round(similitud * 100)}% parecido</div>` : ''}
