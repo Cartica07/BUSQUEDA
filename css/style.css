@@ -12,7 +12,7 @@
   --urgente-dark: #A83E14;
   --mascota: #8A6D1F;
   --mascota-bg: #F3ECD3;
-  --persona-bg: #E1EAE9;
+  --surface-soft: #E1EAE9;
   --found: #2E6B3E;
   --found-bg: #E2EEE3;
   --pendiente: #B23A2E;
@@ -255,7 +255,7 @@ button, .btn{
   padding:1px 9px; border-radius:10px;
   background:var(--bg); color:var(--muted);
 }
-.tipo-btn.active[data-tipo="perdido"]{ background:var(--persona-bg); color:var(--primary); }
+.tipo-btn.active[data-tipo="perdido"]{ background:var(--surface-soft); color:var(--primary); }
 .tipo-btn.active[data-tipo="perdido"] .tipo-count{ background:var(--primary); color:#fff; }
 .tipo-btn.active[data-tipo="encontrado"]{ background:var(--found-bg); color:var(--found); }
 .tipo-btn.active[data-tipo="encontrado"] .tipo-count{ background:var(--found); color:#fff; }
@@ -347,7 +347,6 @@ button, .btn{
   transform:rotate(4deg);
   z-index:3;
 }
-.stamp.persona{ color:var(--primary); background:rgba(255,253,248,0.88); }
 .stamp.mascota{ color:var(--mascota); background:rgba(255,253,248,0.88); }
 .stamp.encontrado{ color:var(--found); background:rgba(255,253,248,0.92); border-color:var(--found); }
 .stamp.pendiente{ color:var(--pendiente); background:rgba(255,253,248,0.92); border-color:var(--pendiente); }
@@ -419,7 +418,7 @@ button, .btn{
   display:flex; align-items:center; padding:0 12px;
   border:1px solid var(--line); border-right:none;
   border-radius:var(--radius) 0 0 var(--radius);
-  background:var(--persona-bg); color:var(--primary);
+  background:var(--surface-soft); color:var(--primary);
   font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:500;
 }
 .whatsapp-input-group input{
@@ -432,7 +431,6 @@ button, .btn{
   border-radius:var(--radius); font-family:'Barlow Condensed',sans-serif;
   font-size:16px; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted);
 }
-.categoria-toggle button.active[data-cat="persona"][data-tipo="perdido"]{ border-color:var(--primary); color:var(--primary); background:var(--persona-bg); }
 .categoria-toggle button.active[data-cat="mascota"][data-tipo="perdido"]{ border-color:var(--mascota); color:var(--mascota); background:var(--mascota-bg); }
 .categoria-toggle button.active[data-tipo="encontrado"]{ border-color:var(--found); color:var(--found); background:var(--found-bg); }
 
@@ -518,7 +516,7 @@ button, .btn{
 .msg .fecha{ color:var(--muted); font-family:'IBM Plex Mono',monospace; font-size:11px; }
 .msg .texto{ font-size:14px; line-height:1.4; }
 
-.chat-form{ display:flex; flex-direction:column; gap:10px; background:var(--persona-bg); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
+.chat-form{ display:flex; flex-direction:column; gap:10px; background:var(--surface-soft); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
 .chat-form .row{ display:flex; gap:10px; }
 .chat-form input, .chat-form textarea{
   padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius);
@@ -579,7 +577,7 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
   border:1px solid var(--line); background:var(--paper); color:var(--ink);
   text-decoration:none; display:inline-flex; align-items:center;
 }
-.admin-btn:hover{ background:var(--persona-bg); }
+.admin-btn:hover{ background:var(--surface-soft); }
 .admin-btn-danger{ border-color:var(--urgente); color:var(--urgente-dark); }
 .admin-btn-danger:hover{ background:#FBE7E0; }
 
