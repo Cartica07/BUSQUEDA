@@ -81,6 +81,14 @@ function cargarAviso() {
     }
     renderAviso(aviso);
     chatSection.style.display = 'block';
+    // Si el registro liviano no trae ni URL de Storage ni foto grande
+    // embebida, es un aviso nuevo cuya foto grande vive aparte (para no
+    // pesarle al listado principal). Se pide justo ahora, solo para este
+    // aviso puntual, y se reemplaza la miniatura por la foto en buena
+    // calidad apenas llega.
+    if (!aviso.imagenURL && !aviso.imagenBase64) {
+      cargarFotoGrande(avisoId);
+    }
   }, (err) => {
     // Firebase puede avisar de un error (permisos, sin conexión, etc.)
     // antes incluso de que se cumplan los 9 segundos del timeout.
@@ -89,6 +97,22 @@ function cargarAviso() {
     console.error('Error cargando el aviso:', err);
     mostrarErrorDeCarga();
   });
+}
+
+// Trae la foto grande desde el nodo aparte "avisos_fotos" y la pone en el
+// <img> del detalle (que hasta este momento muestra la miniatura, más
+// borrosa). Si no hay foto guardada ahí tampoco (aviso viejo sin foto,
+// o algo salió mal), simplemente se queda con lo que ya está mostrando.
+function cargarFotoGrande(id) {
+  db.ref('avisos_fotos/' + id).once('value')
+    .then((snapshot) => {
+      const datos = snapshot.val();
+      const img = document.getElementById('fotoDetalle');
+      if (datos && datos.imagenBase64 && img) {
+        img.src = datos.imagenBase64;
+      }
+    })
+    .catch((err) => console.warn('No se pudo cargar la foto en buena calidad:', err));
 }
 
 function mostrarErrorDeCarga() {
@@ -137,8 +161,8 @@ function renderAviso(aviso) {
     <div class="poster">
       <div class="tape"></div>
       <div class="stamp ${stampClassFinal}">${stampTexto}</div>
-      ${(aviso.imagenURL || aviso.imagenBase64)
-        ? `<img class="foto" src="${aviso.imagenURL || aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}" loading="eager">`
+      ${(aviso.imagenURL || aviso.imagenBase64 || aviso.imagenMiniBase64)
+        ? `<img id="fotoDetalle" class="foto" src="${aviso.imagenURL || aviso.imagenBase64 || aviso.imagenMiniBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}" loading="eager">`
         : ''}
       <div class="body">
         <div class="nombre">${escapeHtml(aviso.nombre)}</div>
