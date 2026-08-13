@@ -61,10 +61,10 @@ function cargarModeloIA() {
 
   promesaModeloIA = cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js')
     .then(() => cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js'))
-    // alpha 0.5 = versión liviana del modelo. Pierde un poquito de precisión
-    // contra la versión completa (alpha 1.0), pero pesa y calcula mucho
-    // menos — clave para que funcione bien en celulares de gama baja.
-    .then(() => mobilenet.load({ version: 2, alpha: 0.5 }))
+    // Volvemos a la versión completa del modelo (alpha 1.0): ahora que el
+    // conjunto a comparar quedó acotado solo a "Perdidos" (no a los 3
+    // tipos), hay margen para priorizar precisión sobre velocidad.
+    .then(() => mobilenet.load({ version: 2, alpha: 1.0 }))
     .then((modelo) => { modeloIA = modelo; return modelo; });
 
   return promesaModeloIA;
@@ -81,21 +81,28 @@ function cargarImagen(src) {
 }
 
 // Las fotos de celular suelen venir en resolución enorme (varios miles de
-// píxeles, varios MB) y el modelo solo necesita 224×224 para funcionar.
-// Achicarla ANTES de analizarla es lo que evita que un celular con poca
-// memoria se trabe o que el navegador mate la pestaña: sin esto, cada
-// comparación obligaba a procesar la imagen a tamaño completo.
-function redimensionarImagen(img, maxDim = 224) {
+// píxeles, varios MB) y hace falta achicarlas antes de analizarlas para
+// que no se trabe el celular. Se usa "contain" (con relleno gris parejo
+// alrededor) en vez de recortar al cuadrado central: recortar podía cortar
+// justo la parte de la foto que hace reconocible al animal/persona (la
+// cabeza, una mancha de color, etc.) y eso le bajaba precisión a la
+// comparación.
+function redimensionarImagen(img, maxDim = 320) {
   const canvas = document.createElement('canvas');
   canvas.width = maxDim;
   canvas.height = maxDim;
   const ctx = canvas.getContext('2d');
-  // "cover": recorta al cuadrado más grande posible centrado, así no se
-  // deforma la imagen al achicarla.
-  const lado = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
-  const sx = ((img.naturalWidth || img.width) - lado) / 2;
-  const sy = ((img.naturalHeight || img.height) - lado) / 2;
-  ctx.drawImage(img, sx, sy, lado, lado, 0, 0, maxDim, maxDim);
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, maxDim, maxDim);
+
+  const anchoOriginal = img.naturalWidth || img.width;
+  const altoOriginal = img.naturalHeight || img.height;
+  const escala = Math.min(maxDim / anchoOriginal, maxDim / altoOriginal);
+  const anchoFinal = anchoOriginal * escala;
+  const altoFinal = altoOriginal * escala;
+  const dx = (maxDim - anchoFinal) / 2;
+  const dy = (maxDim - altoFinal) / 2;
+  ctx.drawImage(img, 0, 0, anchoOriginal, altoOriginal, dx, dy, anchoFinal, altoFinal);
   return canvas;
 }
 
@@ -426,7 +433,9 @@ async function renderPorFoto() {
 
     // Un respiro cada pocas imágenes: evita que el navegador se sienta
     // trabado en celulares de gama baja, y de paso muestra avance real.
-    if (i % 3 === 0) {
+    // Como ahora el modelo es más pesado (más precisión), se respira más
+    // seguido que antes.
+    if (i % 2 === 0) {
       fotoBusquedaTexto.textContent = `Comparando fotos... (${i + 1}/${aComparar.length})`;
       await respirar();
     }
