@@ -2,25 +2,32 @@
   "rules": {
     "avisos": {
       ".read": true,
-      ".indexOn": ["fecha", "categoria", "ciudad", "estado"],
+      ".indexOn": ["fecha", "categoria", "ciudad", "departamento", "estado", "tipo"],
       "$avisoId": {
-        ".write": "!data.exists() || auth != null",
+        ".write": "!data.exists() || (auth != null && auth.token.email === 'jhoncarta14@gmail.com')",
         ".validate": "newData.hasChildren(['categoria','nombre','estado','fecha'])",
-        "categoria": { ".validate": "newData.val() === 'mascota'" },
+        "categoria": { ".validate": "newData.val() === 'persona' || newData.val() === 'mascota'" },
+        "tipo": { ".validate": "!newData.exists() || newData.val() === 'perdido' || newData.val() === 'encontrado'" },
+        "especie": { ".validate": "!newData.exists() || newData.val() === 'perro' || newData.val() === 'gato'" },
         "nombre": { ".validate": "newData.isString() && newData.val().length <= 100" },
-        "ciudad": { ".validate": "newData.isString() && newData.val().length <= 80" },
+        "departamento": { ".validate": "!newData.exists() || newData.val().length <= 60" },
+        "ciudad": { ".validate": "!newData.exists() || newData.val().length <= 80" },
+        "sector": { ".validate": "!newData.exists() || newData.val().length <= 100" },
+        "edad": { ".validate": "!newData.exists() || newData.val().length <= 30" },
         "descripcion": { ".validate": "newData.isString() && newData.val().length <= 1000" },
-        "whatsapp": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "whatsapp": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 20)" },
+        "redSocial": { ".validate": "!newData.exists() || newData.val().length <= 200" },
         "estado": {
           ".write": true,
           ".validate": "newData.val() === 'buscando' || newData.val() === 'encontrado'"
         },
         "imagenBase64": { ".validate": "!newData.exists() || newData.val().length <= 700000" },
-
+        "imagenMiniBase64": { ".validate": "!newData.exists() || newData.val().length <= 150000" },
+        "imagenURL": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 500)" },
         "comentarios": {
           ".read": true,
           "$comentarioId": {
-            ".write": "!data.exists()",
+            ".write": "!data.exists() || (auth != null && auth.token.email === 'jhoncarta14@gmail.com')",
             ".validate": "newData.hasChildren(['mensaje','fecha'])",
             "mensaje": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
             "autor": { ".validate": "!newData.exists() || newData.val().length <= 60" }
@@ -31,7 +38,7 @@
     "avisos_fotos": {
       "$avisoId": {
         ".read": true,
-        ".write": "!data.exists() || newData.val() === null || auth != null",
+        ".write": "!data.exists() || newData.val() === null || (auth != null && auth.token.email === 'jhoncarta14@gmail.com')",
         ".validate": "newData.hasChild('imagenBase64')",
         "imagenBase64": { ".validate": "newData.val().length <= 700000" }
       }
