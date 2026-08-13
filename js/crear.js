@@ -394,7 +394,16 @@ form.addEventListener('submit', (e) => {
     setTimeout(() => reject(new Error('TIMEOUT_CONEXION')), LIMITE_DURO_MS);
   });
 
-  const publicacion = subirFotoAStorage(imagenBase64)
+  // El intento de subir a Storage tiene su PROPIO límite corto (8s). Esto es
+  // clave: si Storage no está activo en el proyecto (por ejemplo, todavía
+  // no se resolvió lo de facturación/Blaze), el SDK de Firebase no avisa
+  // rápido que falló — se queda reintentando solo por dentro durante hasta
+  // 2 minutos antes de rendirse. Sin este límite propio, esa espera interna
+  // del SDK gana la carrera contra el límite duro de abajo (40s) y el
+  // aviso "falla" ahí SIN llegar nunca a probar el plan B. Con este límite
+  // corto, a los 8 segundos como mucho ya se cae al respaldo en la base de
+  // datos y sigue publicando con tiempo de sobra.
+  const publicacion = conLimiteDeTiempo(subirFotoAStorage(imagenBase64), 8000)
     .then((url) => {
       nuevoAviso.imagenURL = url;
     })
@@ -455,4 +464,15 @@ async function subirFotoAStorage(dataUrl) {
   const ref = storage.ref(nombreArchivo);
   await ref.put(blob, { contentType: 'image/jpeg' });
   return await ref.getDownloadURL();
+}
+
+// Corta la espera de una promesa a los `ms` indicados. No cancela lo que
+// esté pasando por detrás (por ejemplo, el SDK de Storage puede seguir
+// reintentando en silencio), simplemente deja de esperarlo y sigue con el
+// plan B — que es exactamente lo que se necesita acá.
+function conLimiteDeTiempo(promesa, ms) {
+  return Promise.race([
+    promesa,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('STORAGE_TIMEOUT')), ms))
+  ]);
 }
