@@ -434,6 +434,13 @@ button, .btn{
 .categoria-toggle button.active[data-cat="mascota"][data-tipo="perdido"]{ border-color:var(--mascota); color:var(--mascota); background:var(--mascota-bg); }
 .categoria-toggle button.active[data-tipo="encontrado"]{ border-color:var(--found); color:var(--found); background:var(--found-bg); }
 
+/* Toggle de especie (perro/gato) en el formulario de publicar: es opcional,
+   así que arranca sin ninguno de los 2 botones marcado como activo — recién
+   se resalta cuando la persona elige uno (y se puede volver a tocar el
+   mismo botón para deseleccionarlo). */
+.especie-toggle button.active[data-especie="perro"]{ border-color:var(--mascota); color:var(--mascota); background:var(--mascota-bg); }
+.especie-toggle button.active[data-especie="gato"]{ border-color:var(--primary); color:var(--primary); background:var(--surface-soft); }
+
 .foto-drop{
   border:2px dashed var(--line); border-radius:var(--radius);
   padding:22px; text-align:center; color:var(--muted); font-size:13.5px;
@@ -580,6 +587,7 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
 .admin-btn:hover{ background:var(--surface-soft); }
 .admin-btn-danger{ border-color:var(--urgente); color:var(--urgente-dark); }
 .admin-btn-danger:hover{ background:#FBE7E0; }
+select.admin-select-especie{ font-family:'Inter',sans-serif; cursor:pointer; }
 
 @media (max-width:600px){
   .brand .name{ font-size:17px; }
