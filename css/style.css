@@ -192,6 +192,7 @@ button, .btn{
 .search-box--foto.activo{ border-color:var(--resuelto); background:var(--resuelto-bg); color:var(--resuelto); }
 .search-foto-icon{ font-size:15px; line-height:1; }
 .search-foto-texto{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.search-foto-texto--corta{ display:none; }
 
 /* Barra que aparece cuando la búsqueda por foto está activa: muestra qué
    foto se está usando y da la opción de salir de ese modo. */
@@ -609,10 +610,15 @@ footer{ text-align:center; padding:26px 20px 40px; font-size:12px; color:var(--m
   .contador{ font-size:11px; }
   .admin-row{ flex-wrap:wrap; }
   .admin-thumb{ width:64px; height:64px; }
-  /* En mobile no entra el texto "Buscar por foto" al lado del input de
-     nombre sin que se vea apretado, así que se deja solo el ícono. */
-  .search-foto-texto{ display:none; }
-  .search-box--foto{ flex:0 0 auto; padding:9px 14px; }
+  /* En mobile no entra el texto completo "Buscar por foto" al lado del
+     input de nombre, pero un "Foto" corto sí entra y ya es bastante más
+     claro que dejar solo el ícono de cámara solo. Se le da un ancho fijo
+     al botón para que el input de nombre le ceda ese espacio y no lo
+     tape casi entero. */
+  .search-foto-texto--full{ display:none; }
+  .search-foto-texto--corta{ display:inline; font-size:12.5px; }
+  .search-split{ gap:8px; }
+  .search-box--foto{ flex:0 0 78px; padding:9px 6px; }
   .foto-busqueda-bar{ margin:8px 16px 0; max-width:none; }
   .badge-similitud{ font-size:11px; padding:2px 7px; left:8px; bottom:8px; }
 }
