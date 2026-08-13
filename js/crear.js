@@ -374,6 +374,13 @@ form.addEventListener('submit', (e) => {
   // La miniatura sigue viviendo en el registro liviano porque es chica y la
   // usan tanto las tarjetas del listado como la búsqueda por foto.
   let yaResolvio = false;
+
+  // Si el navegador no logra conectarse a Firebase en tiempo real (wifi con
+  // portal cautivo, señal mala, firewall que bloquea WebSockets), el SDK NO
+  // tira error: deja el envío en cola esperando reconexión indefinidamente.
+  // Antes eso dejaba el botón trabado para siempre sin ningún aviso real.
+  // Este aviso "blando" a los 20s solo avisa; el "duro" de abajo (40s) corta
+  // la espera de verdad y libera el botón para que se pueda reintentar.
   const avisoLento = setTimeout(() => {
     if (!yaResolvio) {
       errorMsg.textContent = 'Está tardando más de lo normal — revisá tu conexión a internet. El aviso puede tardar en aparecer si la señal es débil, no hace falta que lo publiques de nuevo todavía.';
@@ -382,7 +389,12 @@ form.addEventListener('submit', (e) => {
     }
   }, 20000);
 
-  subirFotoAStorage(imagenBase64)
+  const LIMITE_DURO_MS = 40000;
+  const timeoutDuro = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('TIMEOUT_CONEXION')), LIMITE_DURO_MS);
+  });
+
+  const publicacion = subirFotoAStorage(imagenBase64)
     .then((url) => {
       nuevoAviso.imagenURL = url;
     })
@@ -390,6 +402,7 @@ form.addEventListener('submit', (e) => {
       console.warn('No se pudo subir la foto a Storage, se guarda aparte en la base de datos:', err);
     })
     .then(() => {
+      if (yaResolvio) return; // el límite duro ya cortó la espera, no seguir
       btnSubmit.textContent = 'Publicando...';
       // Se reserva la key de antemano (push() sin datos genera el id al
       // instante, sin escribir nada todavía) para poder guardar en una
@@ -402,18 +415,29 @@ form.addEventListener('submit', (e) => {
         actualizaciones['avisos_fotos/' + nuevaRef.key] = { imagenBase64 };
       }
       return db.ref().update(actualizaciones).then(() => nuevaRef);
-    })
+    });
+
+  Promise.race([publicacion, timeoutDuro])
     .then((ref) => {
+      // Si ya se venció el límite duro antes de que esto resolviera, el
+      // aviso puede terminar publicándose igual unos segundos después en
+      // segundo plano — no forzamos la redirección para no confundir a
+      // alguien que ya vio el error y quizás reintentó.
+      if (yaResolvio || !ref) return;
       yaResolvio = true;
       clearTimeout(avisoLento);
       borrarBorrador();
       window.location.href = `aviso.html?id=${ref.key}`;
     })
     .catch((err) => {
+      if (yaResolvio) return;
       yaResolvio = true;
       clearTimeout(avisoLento);
       console.error('Error al publicar en Firebase:', err);
-      errorMsg.textContent = 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
+      const esTimeout = err && err.message === 'TIMEOUT_CONEXION';
+      errorMsg.textContent = esTimeout
+        ? 'No se pudo conectar con el servidor después de 40 segundos. Revisá tu conexión a internet (wifi/datos) e intentá de nuevo — si el aviso anterior llegó a publicarse igual más tarde en segundo plano, no pasa nada, simplemente no lo publiques dos veces si lo ves aparecer.'
+        : 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
       errorMsg.classList.add('show');
       btnSubmit.disabled = false;
       btnSubmit.textContent = 'Publicar aviso o foto';
