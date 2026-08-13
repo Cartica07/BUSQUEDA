@@ -62,12 +62,16 @@
     <span id="migracionEstado" class="mono" style="margin-left:10px; color:var(--muted);"></span>
   </div>
 
+  <!-- Esta página quedó solo para mascotas. Los avisos de personas que
+       hayan quedado de antes se pueden descargar (para pasarlos a la
+       página aparte que se está armando para eso) y después borrar de acá,
+       en un solo paso. -->
+  <div class="admin-migracion" style="margin:12px 0; padding:12px; border:1px solid var(--line); border-radius:var(--radius);">
+    <button type="button" id="btnExportarPersonas" class="admin-btn">Exportar y eliminar avisos de personas</button>
+    <span id="personasEstado" class="mono" style="margin-left:10px; color:var(--muted);"></span>
+  </div>
+
   <div class="filters">
-    <div class="tab-group" id="tabsCategoriaAdmin">
-      <button class="tab active" data-cat="todas">Todas</button>
-      <button class="tab" data-cat="persona">Personas</button>
-      <button class="tab" data-cat="mascota">Mascotas</button>
-    </div>
     <select class="select-ciudad" id="selectEstadoAdmin">
       <option value="todas">Todos los estados</option>
       <option value="buscando">Buscando</option>
