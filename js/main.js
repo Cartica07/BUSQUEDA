@@ -7,6 +7,7 @@ let filtroDepartamento = 'todas';
 let filtroCiudad = 'todas';
 let filtroNombre = '';
 let filtroTipo = 'perdido';
+let filtroEspecie = 'todas'; // 'todas' | 'perro' | 'gato'
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -15,6 +16,7 @@ const selectDepartamento = document.getElementById('selectDepartamento');
 const selectCiudad = document.getElementById('selectCiudad');
 const inputBuscar = document.getElementById('buscarNombre');
 const tipoToggle = document.getElementById('tipoToggle');
+const especieToggle = document.getElementById('especieToggle');
 const contadorPerdidos = document.getElementById('contadorPerdidos');
 const contadorEncontrados = document.getElementById('contadorEncontrados');
 const contadorResueltos = document.getElementById('contadorResueltos');
@@ -278,6 +280,15 @@ tipoToggle.addEventListener('click', (e) => {
   render();
 });
 
+especieToggle.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  [...especieToggle.children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filtroEspecie = btn.dataset.especie;
+  render();
+});
+
 function actualizarSelectDepartamentos() {
   const departamentos = new Set();
   Object.values(todosLosAvisos).forEach(a => { if (a.departamento) departamentos.add(a.departamento); });
@@ -341,6 +352,7 @@ function render() {
   const coincideFiltrosBase = ([id, a]) =>
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
+    (filtroEspecie === 'todas' || a.especie === filtroEspecie) &&
     (!filtroNombre || normalizarTexto(a.nombre).includes(filtroNombre));
 
   const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
@@ -399,7 +411,8 @@ async function renderPorFoto() {
     (a.imagenMiniBase64 || a.imagenBase64) &&
     (categoriaFiltro(a) === 'perdido' || categoriaFiltro(a) === 'encontrado') &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
-    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad)
+    (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
+    (filtroEspecie === 'todas' || a.especie === filtroEspecie)
   );
 
   contadorPerdidos.textContent = '–';
@@ -498,7 +511,7 @@ function crearCard(id, aviso, similitud) {
     <div class="body">
       <div class="nombre">${escapeHtml(aviso.nombre || 'Sin nombre')}</div>
       <div class="meta">
-        <span class="mono">MASCOTA</span>
+        <span class="mono">${aviso.especie === 'perro' ? 'PERRO' : aviso.especie === 'gato' ? 'GATO' : 'MASCOTA'}</span>
       </div>
       ${aviso.descripcion ? `<div class="desc">${escapeHtml(aviso.descripcion)}</div>` : ''}
       <div class="foot">
