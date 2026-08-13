@@ -444,7 +444,13 @@ form.addEventListener('submit', (e) => {
       yaResolvio = true;
       clearTimeout(avisoLento);
       borrarBorrador();
-      window.location.href = `aviso.html?id=${ref.key}`;
+      // Se usa replace() en vez de asignar location.href directamente:
+      // así esta página (crear.html) se REEMPLAZA en el historial del
+      // navegador por la del aviso recién publicado, en vez de agregarse
+      // como un paso intermedio. Si no, al tocar "volver a todos los
+      // avisos" en la página siguiente, el botón atrás del navegador
+      // te mandaba de vuelta acá (al formulario) en vez de al inicio.
+      window.location.replace(`aviso.html?id=${ref.key}`);
     })
     .catch((err) => {
       if (yaResolvio) return;
