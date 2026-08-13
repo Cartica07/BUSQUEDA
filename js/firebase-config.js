@@ -29,3 +29,8 @@ const db = firebase.database();
 // El SDK de Auth solo se carga en admin.html (las demás páginas no lo
 // necesitan), por eso se crea `auth` únicamente si está disponible.
 const auth = (typeof firebase.auth === 'function') ? firebase.auth() : null;
+// El SDK de Storage solo se carga en crear.html (para subir fotos) y en
+// admin.html (para poder borrarlas al eliminar un aviso). El resto de
+// páginas solo muestra <img> apuntando a URLs de Storage, sin necesitar
+// el SDK para nada.
+const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
