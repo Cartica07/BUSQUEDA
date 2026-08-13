@@ -5,7 +5,11 @@
 // orden de departamentos afectados (DEPARTAMENTOS_AFECTADOS) vienen
 // del archivo js/colombia-data.js, que se carga antes que este script.
 
-let categoriaSeleccionada = 'persona';
+// Ya no se pide elegir entre persona/mascota: esta página es solo para
+// mascotas (los avisos de personas se manejan aparte). Se deja fijo para
+// no tener que tocar el resto del código que todavía distingue por
+// categoría (el listado principal, el panel de admin, etc.).
+const categoriaSeleccionada = 'mascota';
 let tipoSeleccionado = 'perdido';
 let imagenBase64 = null;
 // Versión chica de la misma foto, solo para las tarjetas del listado
@@ -23,13 +27,11 @@ let restaurandoBorrador = false;
 
 const btnsCategoria = document.querySelectorAll('.categoria-toggle button');
 const labelNombre = document.getElementById('labelNombre');
-const labelEdad = document.getElementById('labelEdad');
 const labelDepartamento = document.getElementById('labelDepartamento');
 const labelMunicipio = document.getElementById('labelMunicipio');
 const labelSector = document.getElementById('labelSector');
 const labelDescripcion = document.getElementById('labelDescripcion');
 const descripcionInput = document.getElementById('descripcion');
-const campoEdad = document.getElementById('campoEdad');
 const nombreInput = document.getElementById('nombre');
 const fotoInput = document.getElementById('fotoInput');
 const fotoDrop = document.getElementById('fotoDrop');
@@ -117,26 +119,19 @@ btnsCategoria.forEach(btn => {
   btn.addEventListener('click', () => {
     btnsCategoria.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    categoriaSeleccionada = btn.dataset.cat;
     tipoSeleccionado = btn.dataset.tipo;
     actualizarTextosFormulario();
     guardarBorrador();
   });
 });
 
-// Adapta etiquetas y placeholders según sea persona/mascota y perdido/encontrado,
-// porque no se le pide lo mismo a quien perdió a alguien que a quien encontró
-// a alguien y no sabe nada de esa persona o animal.
+// Adapta etiquetas y placeholders según sea perdido/encontrado, porque no
+// se le pide lo mismo a quien perdió a su mascota que a quien encontró una
+// y no sabe nada de ella.
 function actualizarTextosFormulario() {
-  const esMascota = categoriaSeleccionada === 'mascota';
   const esEncontrado = tipoSeleccionado === 'encontrado';
 
-  labelNombre.textContent = esMascota
-    ? (esEncontrado ? 'Nombre de la mascota (si lo sabe)' : 'Nombre de la mascota')
-    : (esEncontrado ? 'Nombre de la persona (si lo sabe)' : 'Nombre de la persona');
-
-  campoEdad.style.display = esMascota ? 'none' : 'block';
-  labelEdad.textContent = esEncontrado ? 'Edad aproximada (opcional)' : 'Edad (opcional)';
+  labelNombre.textContent = esEncontrado ? 'Nombre de la mascota (si lo sabe)' : 'Nombre de la mascota';
 
   labelDepartamento.textContent = esEncontrado ? 'Departamento donde la encontraste' : 'Departamento';
   labelMunicipio.textContent = esEncontrado ? 'Municipio o ciudad donde la encontraste' : 'Municipio o ciudad';
@@ -144,18 +139,12 @@ function actualizarTextosFormulario() {
     '<span style="font-weight:400;color:var(--muted);">(barrio, comuna o zona)</span>';
 
   labelDescripcion.textContent = 'Descripción (opcional)';
-  if (esEncontrado) {
-    descripcionInput.placeholder = esMascota
-      ? '¿En qué estado la encontraste? Raza, color, tamaño, si tiene collar o placa, cómo se comporta, si está herida...'
-      : '¿En qué estado la encontraste? ¿Ha dicho algo, sabe su nombre o dónde vive? Ropa, señas particulares, edad aproximada...';
-  } else {
-    descripcionInput.placeholder = esMascota
-      ? 'Raza, color, tamaño, señas particulares, si tenía collar, cómo se comporta...'
-      : 'Última vez visto/a, ropa, señas particulares, cualquier detalle que ayude a identificarla...';
-  }
+  descripcionInput.placeholder = esEncontrado
+    ? '¿En qué estado la encontraste? Raza, color, tamaño, si tiene collar o placa, cómo se comporta, si está herida...'
+    : 'Raza, color, tamaño, señas particulares, si tenía collar, cómo se comporta...';
 }
 
-// Aplica los textos correctos para el estado inicial (persona + perdido)
+// Aplica los textos correctos para el estado inicial (perdido)
 actualizarTextosFormulario();
 function manejarSeleccionFoto(file) {
   if (!file) return;
@@ -204,7 +193,6 @@ function guardarBorrador() {
   if (restaurandoBorrador) return;
   try {
     const borrador = {
-      categoria: categoriaSeleccionada,
       tipo: tipoSeleccionado,
       nombre: nombreInput.value,
       departamento: departamentoSelect.value,
@@ -214,7 +202,6 @@ function guardarBorrador() {
       descripcion: document.getElementById('descripcion').value,
       whatsapp: document.getElementById('whatsapp').value,
       redSocial: document.getElementById('redSocial').value,
-      edad: document.getElementById('edad').value,
       imagenBase64,
       imagenMiniBase64
     };
@@ -245,9 +232,8 @@ function restaurarBorrador() {
   restaurandoBorrador = true;
 
   const tipoBorrador = borrador.tipo === 'encontrado' ? 'encontrado' : 'perdido';
-  const catBorrador = borrador.categoria === 'mascota' ? 'mascota' : 'persona';
   const btnCoincidente = document.querySelector(
-    `.categoria-toggle button[data-cat="${catBorrador}"][data-tipo="${tipoBorrador}"]`
+    `.categoria-toggle button[data-tipo="${tipoBorrador}"]`
   );
   if (btnCoincidente) btnCoincidente.click();
 
@@ -267,7 +253,6 @@ function restaurarBorrador() {
   if (borrador.descripcion) document.getElementById('descripcion').value = borrador.descripcion;
   if (borrador.whatsapp) document.getElementById('whatsapp').value = borrador.whatsapp;
   if (borrador.redSocial) document.getElementById('redSocial').value = borrador.redSocial;
-  if (borrador.edad) document.getElementById('edad').value = borrador.edad;
 
   if (borrador.imagenBase64) {
     imagenBase64 = borrador.imagenBase64;
@@ -286,8 +271,7 @@ function restaurarBorrador() {
 
 // Cualquier cambio en estos campos actualiza el borrador guardado
 [nombreInput, sectorInput, municipioOtro, document.getElementById('descripcion'),
- document.getElementById('whatsapp'), document.getElementById('redSocial'),
- document.getElementById('edad')].forEach(el => {
+ document.getElementById('whatsapp'), document.getElementById('redSocial')].forEach(el => {
   el.addEventListener('input', guardarBorrador);
 });
 
@@ -306,7 +290,6 @@ form.addEventListener('submit', (e) => {
   const descripcion = document.getElementById('descripcion').value.trim();
   const whatsappRaw = document.getElementById('whatsapp').value.trim();
   const redSocial = document.getElementById('redSocial').value.trim();
-  const edad = document.getElementById('edad').value.trim();
 
   // El único dato realmente obligatorio es el aviso/foto: ya viene con
   // toda la información escrita, así que el resto de campos son de apoyo
@@ -344,14 +327,11 @@ form.addEventListener('submit', (e) => {
   };
   if (departamento) nuevoAviso.departamento = departamento;
   if (municipio) nuevoAviso.ciudad = municipio;
-  if (categoriaSeleccionada === 'persona' && edad) nuevoAviso.edad = edad;
   if (sector) nuevoAviso.sector = sector;
 
   function nombrePorDefecto() {
-    if (tipoSeleccionado === 'encontrado') {
-      return categoriaSeleccionada === 'mascota' ? 'Mascota no identificada' : 'Persona no identificada';
-    }
-    return categoriaSeleccionada === 'mascota' ? 'Mascota sin nombre' : 'Sin nombre';
+    if (tipoSeleccionado === 'encontrado') return 'Mascota no identificada';
+    return 'Mascota sin nombre';
   }
 
   // La foto grande (la que se ve en el detalle del aviso) ya no se guarda
