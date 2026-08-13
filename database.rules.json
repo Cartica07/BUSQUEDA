@@ -2,13 +2,12 @@
   "rules": {
     "avisos": {
       ".read": true,
-      ".indexOn": ["fecha", "categoria", "ciudad", "departamento", "estado", "tipo"],
+      ".indexOn": ["fecha", "especie", "ciudad", "departamento", "estado", "tipo"],
       "$avisoId": {
         ".write": "!data.exists() || (auth != null && auth.token.email === 'jhoncarta14@gmail.com')",
-        ".validate": "newData.hasChildren(['categoria','nombre','estado','fecha'])",
-        "categoria": { ".validate": "newData.val() === 'persona' || newData.val() === 'mascota'" },
+        ".validate": "newData.hasChildren(['nombre','estado','fecha'])",
         "tipo": { ".validate": "!newData.exists() || newData.val() === 'perdido' || newData.val() === 'encontrado'" },
-        "especie": { ".validate": "!newData.exists() || newData.val() === 'perro' || newData.val() === 'gato'" },
+        "especie": { ".validate": "!newData.exists() || newData.val() === 'perro' || newData.val() === 'gato' || newData.val() === 'otro'" },
         "nombre": { ".validate": "newData.isString() && newData.val().length <= 100" },
         "departamento": { ".validate": "!newData.exists() || newData.val().length <= 60" },
         "ciudad": { ".validate": "!newData.exists() || newData.val().length <= 80" },
