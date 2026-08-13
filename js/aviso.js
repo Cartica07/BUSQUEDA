@@ -137,8 +137,8 @@ function renderAviso(aviso) {
     <div class="poster">
       <div class="tape"></div>
       <div class="stamp ${stampClassFinal}">${stampTexto}</div>
-      ${aviso.imagenBase64
-        ? `<img class="foto" src="${aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}">`
+      ${(aviso.imagenURL || aviso.imagenBase64)
+        ? `<img class="foto" src="${aviso.imagenURL || aviso.imagenBase64}" alt="Foto de ${escapeHtml(aviso.nombre)}" loading="eager">`
         : ''}
       <div class="body">
         <div class="nombre">${escapeHtml(aviso.nombre)}</div>
