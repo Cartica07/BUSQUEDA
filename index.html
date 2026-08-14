@@ -56,6 +56,7 @@
   <div class="foto-busqueda-bar" id="fotoBusquedaBar" style="display:none">
     <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
     <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
+    <button type="button" id="fotoBusquedaRefinar" class="foto-busqueda-refinar" style="display:none">Refinar búsqueda</button>
     <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
   </div>
   <div class="tipo-toggle" id="tipoToggle">
@@ -86,8 +87,24 @@
 <span class="contador contador-bottom" id="contador"></span>
 
 <footer>
-  Hecho por IG: <a href="https://instagram.com/alexander.cv7" target="_blank" rel="noopener">alexander.cv7</a>, para la comunidad. Si necesitas ayuda con la creación de un aviso u otra cuestión no dudes en contactarme.
+  Hecho por IG: <a href="https://instagram.com/alexander.cv7" target="_blank" rel="noopener">alexander.cv7</a>, para la comunidad. Si necesitas ayuda con la creación de un aviso u otra cuestión [...]
 </footer>
+
+<!-- Modal simple para elegir la sección a buscar: Perdidos / Encontrados / Ambos -->
+<div id="photoSearchModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:9999">
+  <div style="background:#fff; padding:16px; border-radius:8px; width:320px; max-width:90%; text-align:center; box-shadow:0 6px 24px rgba(0,0,0,0.2)">
+    <div style="font-weight:600; margin-bottom:8px">¿En qué sección querés buscar coincidencias?</div>
+    <div style="font-size:14px; color:#555; margin-bottom:12px">Elegir una sección reduce el tiempo de búsqueda y la carga en el teléfono.</div>
+    <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px">
+      <button id="modalBuscarPerdidos" style="flex:1; padding:8px 10px">Perdidos</button>
+      <button id="modalBuscarEncontrados" style="flex:1; padding:8px 10px">Encontrados</button>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:center">
+      <button id="modalBuscarAmbos" style="flex:1; padding:8px 10px">Ambos</button>
+      <button id="modalBuscarCancelar" style="flex:1; padding:8px 10px">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" defer></script>
