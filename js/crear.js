@@ -386,13 +386,34 @@ form.addEventListener('submit', (e) => {
     .then(() => {
       if (yaResolvio) return;
       btnSubmit.textContent = 'Publicando...';
+      // push() sin argumentos solo genera un id nuevo localmente (no usa
+      // red todavía) — el ".push()" de siempre, pero sin escribir nada.
       const nuevaRef = db.ref('avisos').push();
       const actualizaciones = {};
       actualizaciones['avisos/' + nuevaRef.key] = nuevoAviso;
       if (!nuevoAviso.imagenURL) {
         actualizaciones['avisos_fotos/' + nuevaRef.key] = { imagenBase64 };
       }
-      return db.ref().update(actualizaciones).then(() => nuevaRef);
+      // Se escribe por REST (fetch normal) en vez de por el canal en
+      // tiempo real del SDK (db.ref().update()). Motivo: si el celular
+      // estuvo un rato sin mandar nada mientras se llenaba el formulario,
+      // el canal persistente de Firebase puede haberse caído en silencio
+      // — algo común en datos móviles, por los cortes de inactividad de
+      // los operadores — y recién se nota cuando hace falta escribir: ahí
+      // el SDK tiene que reconectar desde cero antes de poder mandar el
+      // aviso. Eso es justo el "a veces tarda mucho" que se siente incluso
+      // con buena señal en ese momento. Un fetch() común abre su propia
+      // conexión ahí mismo, sin depender de si el canal de antes seguía
+      // vivo.
+      const urlBase = db.ref().toString().replace(/\/$/, '');
+      return fetch(urlBase + '/.json', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actualizaciones)
+      }).then((res) => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return nuevaRef;
+      });
     });
 
   Promise.race([publicacion, timeoutDuro])
