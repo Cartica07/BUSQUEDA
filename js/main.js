@@ -28,6 +28,24 @@ const fotoBusquedaTexto = document.getElementById('fotoBusquedaTexto');
 const fotoBusquedaCancelar = document.getElementById('fotoBusquedaCancelar');
 const fotoBusquedaRefinar = document.getElementById('fotoBusquedaRefinar');
 
+// Botón "volver arriba": aparece cuando el encabezado ya salió de
+// pantalla. Se usa IntersectionObserver en vez de un listener de scroll
+// — es la forma más liviana de detectarlo: el navegador avisa solo
+// cuando el encabezado entra o sale de la vista, sin ejecutar nada en
+// cada pixel que se hace scroll (a diferencia de un 'scroll' listener
+// normal, que si no se throttlea puede ir recalculando todo el tiempo).
+const btnSubirArriba = document.getElementById('btnSubirArriba');
+const headerTopbar = document.querySelector('.topbar');
+if (btnSubirArriba && headerTopbar && 'IntersectionObserver' in window) {
+  const observerSubirArriba = new IntersectionObserver(([entrada]) => {
+    btnSubirArriba.classList.toggle('visible', !entrada.isIntersecting);
+  });
+  observerSubirArriba.observe(headerTopbar);
+  btnSubirArriba.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 // Modal elements (may be null if HTML wasn't updated)
 const photoSearchModal = document.getElementById('photoSearchModal');
 const modalBuscarPerdidos = document.getElementById('modalBuscarPerdidos');
@@ -638,7 +656,6 @@ function crearCard(id, aviso, similitud) {
 
   a.innerHTML = `
     <div class="card-media">
-      <div class="tape"></div>
       <div class="stamp ${stampClass}">${stampTexto}</div>
       <div class="media-wrap">
         ${(aviso.imagenMiniBase64 || aviso.imagenBase64)
