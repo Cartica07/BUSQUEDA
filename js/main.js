@@ -225,34 +225,34 @@ try {
   console.warn('No se pudo leer la caché local:', e);
 }
 
-// Etapa 2: los más recientes primero, mostrados de a poco a medida que
-// van llegando — en el celular entran más o menos 2 avisos por fila, así
-// que apenas hay 1 o 2 en pantalla ya se ve contenido, en vez de esperar
-// a que los 10 lleguen juntos para recién mostrar algo. Se logra usando
-// 'child_added' (Firebase avisa uno por uno) en vez de 'value' (que
-// entrega todo junto de una).
-const queryRecientes = db.ref('avisos').orderByChild('fecha').limitToLast(10);
+// Etapa 2: los 10 más recientes, pedidos por REST puro (fetch normal por
+// HTTPS) en vez de por el canal en tiempo real del SDK. La razón: el canal
+// en tiempo real (WebSocket) negocia su propia sesión antes de entregar el
+// primer dato — un costo fijo aparte de la conexión de red, que paga
+// aunque sea un pedido "de una sola vez" como .once(). Un fetch() común
+// contra la REST API de Firebase es un pedido HTTP de toda la vida: una
+// ida y vuelta, sin negociación de canal — y aprovecha directo el
+// <link rel="preconnect"> del <head>. Para este primer pantallazo, que
+// solo necesita datos una vez (no en vivo), REST es más rápido.
+// La Etapa 3 de abajo sigue usando el canal en tiempo real, porque ahí sí
+// hace falta que quede escuchando cambios.
+const urlBase = db.ref().toString().replace(/\/$/, '');
+const urlRecientes = urlBase + '/avisos.json?orderBy=%22fecha%22&limitToLast=10';
 
-function alLlegarUnoReciente(snapshot) {
-  const id = snapshot.key;
-  const aviso = snapshot.val();
-  if (!aviso || aviso.categoria === 'persona') return; // esta página es solo de mascotas
-  todosLosAvisos[id] = aviso;
-  agregarCardIncremental(id, aviso);
-}
-queryRecientes.on('child_added', alLlegarUnoReciente);
-
-queryRecientes.once('value')
-  .then(() => {
-    // Cuando esta promesa se resuelve, Firebase garantiza que ya se
-    // disparó 'child_added' para cada uno de los avisos de esta ráfaga
-    // inicial (y ya se pintó su tarjeta). De acá en más se desengancha
-    // este listener puntual — la Etapa 3 de abajo (el listado completo en
-    // vivo) se encarga de todo lo que pase de ahora en adelante.
-    queryRecientes.off('child_added', alLlegarUnoReciente);
+fetch(urlRecientes)
+  .then((res) => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then((datos) => {
+    const recientes = soloMascotas(datos);
+    Object.entries(recientes).forEach(([id, aviso]) => {
+      todosLosAvisos[id] = aviso;
+      agregarCardIncremental(id, aviso);
+    });
     actualizarSelectDepartamentos();
   })
-  .catch((err) => console.error('Error cargando avisos recientes:', err));
+  .catch((err) => console.error('Error cargando avisos recientes (REST):', err));
 
 // Etapa 3: el listado completo, en vivo. Cuando llega, reemplaza
 // del todo a todosLosAvisos (por eso ya no hace falta mezclar) y
