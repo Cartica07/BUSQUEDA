@@ -213,8 +213,6 @@ fotoInput.addEventListener('change', () => manejarSeleccionFoto(fotoInput.files[
 // ============================================================
 // GUARDADO AUTOMÁTICO DEL BORRADOR (localStorage)
 // ============================================================
-// Guarda el progreso del formulario para que, si la página se recarga
-// o se cierra por error antes de publicar, no se pierda lo ya escrito.
 
 function guardarBorrador() {
   if (restaurandoBorrador) return;
@@ -235,8 +233,6 @@ function guardarBorrador() {
     };
     localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
   } catch (err) {
-    // Si el navegador bloquea localStorage (modo privado, cuota llena, etc.)
-    // simplemente no se guarda el borrador; no debe romper el formulario.
     console.warn('No se pudo guardar el borrador:', err);
   }
 }
@@ -291,9 +287,6 @@ function restaurarBorrador() {
 
   if (borrador.imagenBase64) {
     imagenBase64 = borrador.imagenBase64;
-    // Los borradores guardados antes de que existiera la miniatura no la
-    // van a tener: en ese caso se usa la foto grande como respaldo, así el
-    // aviso publicado igual queda con algo en el campo imagenMiniBase64.
     imagenMiniBase64 = borrador.imagenMiniBase64 || borrador.imagenBase64;
     fotoDrop.innerHTML = `<img src="${imagenBase64}" alt="Vista previa">
       <input type="file" id="fotoInput" accept="image/*">`;
@@ -304,7 +297,6 @@ function restaurarBorrador() {
   restaurandoBorrador = false;
 }
 
-// Cualquier cambio en estos campos actualiza el borrador guardado
 [nombreInput, sectorInput, municipioOtro, document.getElementById('descripcion'),
  document.getElementById('whatsapp'), document.getElementById('redSocial')].forEach(el => {
   el.addEventListener('input', guardarBorrador);
@@ -326,9 +318,6 @@ form.addEventListener('submit', (e) => {
   const whatsappRaw = document.getElementById('whatsapp').value.trim();
   const redSocial = document.getElementById('redSocial').value.trim();
 
-  // El único dato realmente obligatorio es el aviso/foto: ya viene con
-  // toda la información escrita, así que el resto de campos son de apoyo
-  // para poder filtrar y buscar, no un requisito para publicar.
   if (!imagenBase64) {
     errorMsg.textContent = 'Sube el aviso o foto antes de publicar.';
     errorMsg.classList.add('show');
@@ -370,28 +359,11 @@ form.addEventListener('submit', (e) => {
     return 'Mascota sin nombre';
   }
 
-  // La foto grande (la que se ve en el detalle del aviso) ya no se guarda
-  // adentro del mismo registro que usa el listado principal — eso es lo
-  // que hacía tan pesada la carga inicial de la página principal. Primero
-  // se intenta subir a Firebase Storage (si está activado en el proyecto)
-  // y solo se guarda su URL, que pesa unos pocos bytes. Si Storage no está
-  // disponible (por ejemplo, todavía no se activó el plan Blaze), la foto
-  // grande se guarda igual, pero en un nodo APARTE de Realtime Database
-  // ("avisos_fotos"), para que nunca viaje junto con el listado — solo se
-  // pide cuando alguien entra al detalle de ESE aviso puntual.
-  // La miniatura sigue viviendo en el registro liviano porque es chica y la
-  // usan tanto las tarjetas del listado como la búsqueda por foto.
   let yaResolvio = false;
 
-  // Si el navegador no logra conectarse a Firebase en tiempo real (wifi con
-  // portal cautivo, señal mala, firewall que bloquea WebSockets), el SDK NO
-  // tira error: deja el envío en cola esperando reconexión indefinidamente.
-  // Antes eso dejaba el botón trabado para siempre sin ningún aviso real.
-  // Este aviso "blando" a los 20s solo avisa; el "duro" de abajo (40s) corta
-  // la espera de verdad y libera el botón para que se pueda reintentar.
   const avisoLento = setTimeout(() => {
     if (!yaResolvio) {
-      errorMsg.textContent = 'Está tardando más de lo normal — revisá tu conexión a internet. El aviso puede tardar en aparecer si la señal es débil, no hace falta que lo publiques de nuevo todavía.';
+      errorMsg.textContent = 'Está tardando más de lo normal — revisá tu conexión a internet. El aviso puede tardar en aparecer si la señal es débil, no hace falta que lo publiques de nuevo.';
       errorMsg.classList.add('show');
       btnSubmit.textContent = 'Publicando... (esperando conexión)';
     }
@@ -402,13 +374,6 @@ form.addEventListener('submit', (e) => {
     setTimeout(() => reject(new Error('TIMEOUT_CONEXION')), LIMITE_DURO_MS);
   });
 
-  // El intento de subir a Storage tiene su PROPIO límite corto (8s), por si
-  // en algún momento se vuelve a activar (ver STORAGE_HABILITADO arriba).
-  // Esto es clave: si Storage no está disponible, el SDK de Firebase no
-  // avisa rápido que falló — se queda reintentando solo por dentro durante
-  // hasta 2 minutos antes de rendirse. Sin este límite propio, esa espera
-  // interna del SDK gana la carrera contra el límite duro de abajo (40s) y
-  // el aviso "falla" ahí SIN llegar nunca a probar el plan B.
   const publicacion = (STORAGE_HABILITADO
       ? conLimiteDeTiempo(subirFotoAStorage(imagenBase64), 8000)
       : Promise.reject(new Error('Storage deshabilitado, se usa el respaldo directo')))
@@ -419,12 +384,8 @@ form.addEventListener('submit', (e) => {
       console.warn('No se sube a Storage, se guarda aparte en la base de datos:', err.message);
     })
     .then(() => {
-      if (yaResolvio) return; // el límite duro ya cortó la espera, no seguir
+      if (yaResolvio) return;
       btnSubmit.textContent = 'Publicando...';
-      // Se reserva la key de antemano (push() sin datos genera el id al
-      // instante, sin escribir nada todavía) para poder guardar en una
-      // sola operación atómica el registro liviano en "avisos" y, si hizo
-      // falta el respaldo, la foto pesada en "avisos_fotos".
       const nuevaRef = db.ref('avisos').push();
       const actualizaciones = {};
       actualizaciones['avisos/' + nuevaRef.key] = nuevoAviso;
@@ -436,20 +397,10 @@ form.addEventListener('submit', (e) => {
 
   Promise.race([publicacion, timeoutDuro])
     .then((ref) => {
-      // Si ya se venció el límite duro antes de que esto resolviera, el
-      // aviso puede terminar publicándose igual unos segundos después en
-      // segundo plano — no forzamos la redirección para no confundir a
-      // alguien que ya vio el error y quizás reintentó.
       if (yaResolvio || !ref) return;
       yaResolvio = true;
       clearTimeout(avisoLento);
       borrarBorrador();
-      // Se usa replace() en vez de asignar location.href directamente:
-      // así esta página (crear.html) se REEMPLAZA en el historial del
-      // navegador por la del aviso recién publicado, en vez de agregarse
-      // como un paso intermedio. Si no, al tocar "volver a todos los
-      // avisos" en la página siguiente, el botón atrás del navegador
-      // te mandaba de vuelta acá (al formulario) en vez de al inicio.
       window.location.replace(`aviso.html?id=${ref.key}`);
     })
     .catch((err) => {
@@ -459,7 +410,7 @@ form.addEventListener('submit', (e) => {
       console.error('Error al publicar en Firebase:', err);
       const esTimeout = err && err.message === 'TIMEOUT_CONEXION';
       errorMsg.textContent = esTimeout
-        ? 'No se pudo conectar con el servidor después de 40 segundos. Revisá tu conexión a internet (wifi/datos) e intentá de nuevo — si el aviso anterior llegó a publicarse igual más tarde en segundo plano, no pasa nada, simplemente no lo publiques dos veces si lo ves aparecer.'
+        ? 'No se pudo conectar con el servidor después de 40 segundos. Revisá tu conexión a internet (wifi/datos) e intentá de nuevo — si el aviso anterior llegó a publicarse igual más tarde puede que ya esté visible.'
         : 'No se pudo publicar (' + (err && err.code ? err.code : 'error de conexión') + '). Revisá tu conexión e intentá de nuevo.';
       errorMsg.classList.add('show');
       btnSubmit.disabled = false;
@@ -468,9 +419,7 @@ form.addEventListener('submit', (e) => {
 });
 
 // Sube la foto grande (dataURL en base64) a Firebase Storage como archivo
-// JPEG y devuelve su URL pública de descarga. Si el SDK de Storage no está
-// disponible en la página (o no se activó Storage en el proyecto todavía),
-// rechaza la promesa para que quien llama pueda usar el respaldo en base64.
+// JPEG y devuelve su URL pública de descarga.
 async function subirFotoAStorage(dataUrl) {
   if (!storage) throw new Error('Firebase Storage no está disponible');
   const blob = await (await fetch(dataUrl)).blob();
@@ -480,10 +429,7 @@ async function subirFotoAStorage(dataUrl) {
   return await ref.getDownloadURL();
 }
 
-// Corta la espera de una promesa a los `ms` indicados. No cancela lo que
-// esté pasando por detrás (por ejemplo, el SDK de Storage puede seguir
-// reintentando en silencio), simplemente deja de esperarlo y sigue con el
-// plan B — que es exactamente lo que se necesita acá.
+// Corta la espera de una promesa a los `ms` indicados.
 function conLimiteDeTiempo(promesa, ms) {
   return Promise.race([
     promesa,
