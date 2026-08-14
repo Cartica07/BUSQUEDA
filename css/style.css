@@ -20,6 +20,7 @@
   --resuelto: #6B4C8A;
   --resuelto-bg: #ECE3F2;
   --radius: 3px;
+  --radius-card: 16px;
   --shadow: 0 1px 0 rgba(22,32,29,0.05), 0 6px 16px rgba(22,32,29,0.08);
 }
 
@@ -115,16 +116,27 @@ button, .btn{
 .btn-inicio:hover{ background:rgba(255,255,255,0.22); border-color:#fff; transform:translateY(-1px); }
 .btn-inicio:active{ transform:translateY(0); }
 
-/* ---------- Banner de contexto ---------- */
-.context-banner{
-  background:var(--primary-dark);
-  color:#DCE7E5;
-  font-size:13px;
-  padding:8px 20px;
-  text-align:center;
-  border-bottom:1px solid rgba(255,255,255,0.08);
+/* ---------- Botón flotante "volver arriba" ---------- */
+/* Aparece/desaparece solo con opacity y
+   visibility (no con display), así la transición es suave y no le cuesta
+   nada al layout — es un elemento de tamaño fijo que no empuja nada más. */
+.btn-subir-arriba{
+  position:fixed; right:16px; bottom:20px; z-index:500;
+  width:44px; height:44px; border-radius:50%; border:none;
+  background:var(--primary); color:#fff; font-size:20px; line-height:1;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  box-shadow:0 4px 14px rgba(22,32,29,0.25);
+  opacity:0; visibility:hidden; transform:translateY(8px);
+  transition:opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
 }
-.context-banner strong{ color:#fff; }
+.btn-subir-arriba.visible{
+  opacity:1; visibility:visible; transform:translateY(0);
+  transition:opacity .2s ease, transform .2s ease;
+}
+.btn-subir-arriba:hover{ background:var(--primary-dark); }
+@media (max-width:640px){
+  .btn-subir-arriba{ right:12px; bottom:16px; width:40px; height:40px; font-size:18px; }
+}
 
 /* ---------- Filtros ---------- */
 .filters{
@@ -299,7 +311,7 @@ button, .btn{
   padding:16px 20px 60px;
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(250px,1fr));
-  gap:22px;
+  gap:26px;
 }
 
 .empty-state{
@@ -324,31 +336,18 @@ button, .btn{
   position:relative;
   background:var(--paper);
   border:1px solid var(--line);
-  border-radius:var(--radius);
+  border-radius:var(--radius-card);
   box-shadow:var(--shadow);
   text-decoration:none; color:var(--ink);
   display:flex; flex-direction:column;
-  transform:rotate(var(--tilt,0deg));
   transition:transform .18s ease, box-shadow .18s ease;
   overflow:hidden;
 }
-.card:nth-child(3n+1){ --tilt:-0.6deg; }
-.card:nth-child(3n+2){ --tilt:0.4deg; }
-.card:nth-child(3n+3){ --tilt:-0.3deg; }
-.card:hover{ transform:rotate(0deg) translateY(-3px); box-shadow:0 10px 26px rgba(22,32,29,0.16); }
-
-.card .tape{
-  position:absolute; top:-8px; left:50%;
-  width:70px; height:22px;
-  background:rgba(255,255,255,0.55);
-  border:1px solid rgba(0,0,0,0.06);
-  transform:translateX(-50%) rotate(-2deg);
-  box-shadow:0 1px 2px rgba(0,0,0,0.08);
-  z-index:2;
-}
+.card:hover{ transform:translateY(-3px); box-shadow:0 10px 26px rgba(22,32,29,0.16); }
 
 .card .foto{
   display:block; width:100%; height:auto;
+  aspect-ratio:4/3; object-fit:cover;
   background:var(--line);
   border-bottom:1px solid var(--line);
 }
@@ -613,7 +612,7 @@ select.admin-select-especie{ font-family:'Inter',sans-serif; cursor:pointer; }
 @media (max-width:600px){
   .brand .name{ font-size:17px; }
   .filters{ padding:16px 16px 4px; }
-  .grid{ padding:14px 16px 50px; grid-template-columns:1fr 1fr; gap:10px; }
+  .grid{ padding:14px 16px 50px; grid-template-columns:1fr 1fr; gap:16px; }
   .card .nombre{ font-size:17px; }
   .card .foto.sin-foto{ aspect-ratio:4/3; font-size:12px; }
   .card .body{ padding:9px 10px 10px; gap:4px; }
@@ -633,7 +632,6 @@ select.admin-select-especie{ font-family:'Inter',sans-serif; cursor:pointer; }
      (text-wrap:balance de arriba) lo deja más legible. */
   .tipo-btn[data-tipo="resuelto"] .tipo-label{ font-size:12.5px; }
   .tipo-count{ font-size:11px; padding:1px 7px; }
-  .card .tape{ width:52px; height:16px; top:-6px; }
   .contador{ font-size:11px; }
   .admin-row{ flex-wrap:wrap; }
   .admin-thumb{ width:64px; height:64px; }
