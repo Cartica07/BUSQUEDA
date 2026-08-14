@@ -543,7 +543,7 @@ async function renderPorFoto() {
   lastConSimilitud = conSimilitud;
 
   // Texto modificado:
-  fotoBusquedaTexto.textContent = 'Mostrando resultados. Pulsa el botón de la derecha para que sea más preciso (tarda más).';
+  fotoBusquedaTexto.textContent = 'Mostrando resultados. Tocá el botón de abajo para que sea más preciso (tarda más).';
   contador.textContent = mejores.length + (mejores.length === 1 ? ' coincidencia' : ' coincidencias');
   grid.innerHTML = '';
 
