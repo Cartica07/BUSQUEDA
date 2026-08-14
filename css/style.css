@@ -347,7 +347,7 @@ button, .btn{
 
 .card .foto{
   display:block; width:100%; height:auto;
-  aspect-ratio:4/3; object-fit:cover;
+  aspect-ratio:4/3; object-fit:contain;
   background:var(--line);
   border-bottom:1px solid var(--line);
 }
