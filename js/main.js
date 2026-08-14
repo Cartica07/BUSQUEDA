@@ -28,19 +28,24 @@ const fotoBusquedaTexto = document.getElementById('fotoBusquedaTexto');
 const fotoBusquedaCancelar = document.getElementById('fotoBusquedaCancelar');
 const fotoBusquedaRefinar = document.getElementById('fotoBusquedaRefinar');
 
-// Botón "volver arriba": aparece cuando el encabezado ya salió de
+// Botón "volver arriba": aparece cuando la barra de filtros ya salió de
 // pantalla. Se usa IntersectionObserver en vez de un listener de scroll
 // — es la forma más liviana de detectarlo: el navegador avisa solo
-// cuando el encabezado entra o sale de la vista, sin ejecutar nada en
-// cada pixel que se hace scroll (a diferencia de un 'scroll' listener
-// normal, que si no se throttlea puede ir recalculando todo el tiempo).
+// cuando el elemento entra o sale de la vista, sin ejecutar nada en cada
+// pixel que se hace scroll (a diferencia de un 'scroll' listener normal,
+// que si no se throttlea puede ir recalculando todo el tiempo).
+// Importante: NO se observa el header (.topbar), porque es "sticky"
+// (se queda pegado arriba todo el tiempo) — para el navegador eso
+// significa que nunca "sale" de la pantalla, así que el observer jamás
+// se dispararía. Se usa la barra de filtros en su lugar, que si se
+// desplaza normalmente con el resto de la página.
 const btnSubirArriba = document.getElementById('btnSubirArriba');
-const headerTopbar = document.querySelector('.topbar');
-if (btnSubirArriba && headerTopbar && 'IntersectionObserver' in window) {
+const filtrosBar = document.querySelector('.filters');
+if (btnSubirArriba && filtrosBar && 'IntersectionObserver' in window) {
   const observerSubirArriba = new IntersectionObserver(([entrada]) => {
     btnSubirArriba.classList.toggle('visible', !entrada.isIntersecting);
   });
-  observerSubirArriba.observe(headerTopbar);
+  observerSubirArriba.observe(filtrosBar);
   btnSubirArriba.addEventListener('click', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
