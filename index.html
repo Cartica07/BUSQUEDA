@@ -54,10 +54,14 @@
     </label>
   </div>
   <div class="foto-busqueda-bar" id="fotoBusquedaBar" style="display:none">
-    <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
-    <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
-    <button type="button" id="fotoBusquedaRefinar" class="foto-busqueda-refinar" style="display:none">Buscar con mayor precisión</button>
-    <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
+    <div class="foto-busqueda-info">
+      <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
+      <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
+    </div>
+    <div class="foto-busqueda-acciones">
+      <button type="button" id="fotoBusquedaRefinar" class="foto-busqueda-refinar" style="display:none">Buscar con mayor precisión</button>
+      <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
+    </div>
   </div>
   <div class="tipo-toggle" id="tipoToggle">
     <button class="tipo-btn active" data-tipo="perdido">
