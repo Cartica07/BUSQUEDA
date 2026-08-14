@@ -347,12 +347,12 @@ button, .btn{
 
 .card .foto{
   display:block; width:100%; height:auto;
-  aspect-ratio:4/3; object-fit:contain;
+  aspect-ratio:3/4; object-fit:contain;
   background:var(--line);
   border-bottom:1px solid var(--line);
 }
 .card .foto.sin-foto{
-  aspect-ratio:4/3;
+  aspect-ratio:3/4;
   display:flex; align-items:center; justify-content:center;
   font-family:'Barlow Condensed',sans-serif; font-size:15px; color:var(--muted);
   text-transform:uppercase; letter-spacing:0.05em;
@@ -614,7 +614,7 @@ select.admin-select-especie{ font-family:'Inter',sans-serif; cursor:pointer; }
   .filters{ padding:16px 16px 4px; }
   .grid{ padding:14px 16px 50px; grid-template-columns:1fr 1fr; gap:16px; }
   .card .nombre{ font-size:17px; }
-  .card .foto.sin-foto{ aspect-ratio:4/3; font-size:12px; }
+  .card .foto.sin-foto{ aspect-ratio:3/4; font-size:12px; }
   .card .body{ padding:9px 10px 10px; gap:4px; }
   .card .meta{ font-size:10.5px; gap:6px; }
   .card .desc{ font-size:11.5px; -webkit-line-clamp:2; line-height:1.35; }
