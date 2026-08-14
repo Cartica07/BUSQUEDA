@@ -225,13 +225,32 @@ try {
   console.warn('No se pudo leer la caché local:', e);
 }
 
-// Etapa 2: los más recientes primero, rápido.
-db.ref('avisos').orderByChild('fecha').limitToLast(10).once('value')
-  .then((snapshot) => {
-    const recientes = soloMascotas(snapshot.val());
-    todosLosAvisos = { ...todosLosAvisos, ...recientes };
+// Etapa 2: los más recientes primero, mostrados de a poco a medida que
+// van llegando — en el celular entran más o menos 2 avisos por fila, así
+// que apenas hay 1 o 2 en pantalla ya se ve contenido, en vez de esperar
+// a que los 10 lleguen juntos para recién mostrar algo. Se logra usando
+// 'child_added' (Firebase avisa uno por uno) en vez de 'value' (que
+// entrega todo junto de una).
+const queryRecientes = db.ref('avisos').orderByChild('fecha').limitToLast(10);
+
+function alLlegarUnoReciente(snapshot) {
+  const id = snapshot.key;
+  const aviso = snapshot.val();
+  if (!aviso || aviso.categoria === 'persona') return; // esta página es solo de mascotas
+  todosLosAvisos[id] = aviso;
+  agregarCardIncremental(id, aviso);
+}
+queryRecientes.on('child_added', alLlegarUnoReciente);
+
+queryRecientes.once('value')
+  .then(() => {
+    // Cuando esta promesa se resuelve, Firebase garantiza que ya se
+    // disparó 'child_added' para cada uno de los avisos de esta ráfaga
+    // inicial (y ya se pintó su tarjeta). De acá en más se desengancha
+    // este listener puntual — la Etapa 3 de abajo (el listado completo en
+    // vivo) se encarga de todo lo que pase de ahora en adelante.
+    queryRecientes.off('child_added', alLlegarUnoReciente);
     actualizarSelectDepartamentos();
-    render();
   })
   .catch((err) => console.error('Error cargando avisos recientes:', err));
 
@@ -344,6 +363,46 @@ function tipoDe(aviso) {
 function categoriaFiltro(aviso) {
   if (aviso.estado === 'encontrado') return 'resuelto';
   return tipoDe(aviso) === 'encontrado' ? 'encontrado' : 'perdido';
+}
+
+// Dice si un aviso debería verse ahora mismo, según los filtros activos
+// en pantalla (ubicación, especie, nombre buscado, pestaña
+// Perdidos/Encontrados por otras personas/Ya aparecieron). Se usa tanto
+// acá como en la carga incremental de la Etapa 2, para no repetir la
+// misma lógica en dos lugares.
+function pasaFiltrosActuales(aviso) {
+  return (
+    (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
+    (filtroCiudad === 'todas' || aviso.ciudad === filtroCiudad) &&
+    (filtroEspecie === 'todas' || aviso.especie === filtroEspecie) &&
+    (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre)) &&
+    categoriaFiltro(aviso) === filtroTipo
+  );
+}
+
+// Agrega UNA tarjeta al listado sin reconstruir todo lo demás — así los
+// avisos van apareciendo de a poco (más o menos de a 2, como entran por
+// fila en un celular) en vez de esperar a que lleguen los 10 juntos.
+//
+// Nota honesta: como Firebase entrega estos avisos del más viejo de la
+// ráfaga al más nuevo, y acá cada uno se agrega arriba de todo, el orden
+// final queda bien (el más reciente termina arriba) recién cuando ya
+// llegaron todos — durante el ratito que están llegando, puede verse por
+// un instante en un orden que no es 100% el definitivo. Es una
+// contrapartida a propósito: se prioriza que algo aparezca ya mismo por
+// sobre que el orden intermedio sea perfecto, y se termina de acomodar
+// solo en un par de segundos, cuando entra la Etapa 3.
+function agregarCardIncremental(id, aviso) {
+  if (modoBusquedaFoto) return; // ese modo tiene su propia forma de pintar
+  if (!pasaFiltrosActuales(aviso)) return;
+  if (grid.querySelector(`[data-id="${id}"]`)) return; // ya está, no duplicar
+
+  emptyState.style.display = 'none';
+  const card = crearCard(id, aviso);
+  grid.insertBefore(card, grid.firstChild);
+
+  const totalVisible = grid.querySelectorAll('.card').length;
+  contador.textContent = totalVisible + (totalVisible === 1 ? ' aviso' : ' avisos');
 }
 
 function render() {
@@ -486,6 +545,7 @@ function crearCard(id, aviso, similitud) {
   const a = document.createElement('a');
   a.href = `aviso.html?id=${id}`;
   a.className = 'card';
+  a.dataset.id = id;
 
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
