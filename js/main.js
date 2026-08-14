@@ -26,6 +26,14 @@ const fotoBusquedaBar = document.getElementById('fotoBusquedaBar');
 const fotoBusquedaPreview = document.getElementById('fotoBusquedaPreview');
 const fotoBusquedaTexto = document.getElementById('fotoBusquedaTexto');
 const fotoBusquedaCancelar = document.getElementById('fotoBusquedaCancelar');
+const fotoBusquedaRefinar = document.getElementById('fotoBusquedaRefinar');
+
+// Modal elements (may be null if HTML wasn't updated)
+const photoSearchModal = document.getElementById('photoSearchModal');
+const modalBuscarPerdidos = document.getElementById('modalBuscarPerdidos');
+const modalBuscarEncontrados = document.getElementById('modalBuscarEncontrados');
+const modalBuscarAmbos = document.getElementById('modalBuscarAmbos');
+const modalBuscarCancelar = document.getElementById('modalBuscarCancelar');
 
 // ------------------------------------------------------------
 // Búsqueda por foto (coincidencias visuales)
@@ -40,10 +48,14 @@ const fotoBusquedaCancelar = document.getElementById('fotoBusquedaCancelar');
 // parecido visual, NO como identificación certera de que sea la misma
 // persona o mascota.
 let modoBusquedaFoto = false;
-let vectorFotoBuscada = null;
+let vectorFotoBuscada = null; // vector rápido (thumbnail)
+let vectorFotoBuscadaFull = null; // vector para refine (mayor resolución)
 let modeloIA = null;
 let promesaModeloIA = null;
 const cacheEmbeddings = {}; // id del aviso -> vector ya calculado (evita recalcular en cada búsqueda)
+let selectedPhotoSection = 'ambos'; // 'perdido'|'encontrado'|'ambos'
+let pendingPhotoFile = null; // archivo seleccionado por input, a la espera de decisión
+let lastConSimilitud = []; // resultados de la búsqueda rápida (para refine)
 
 function cargarModeloIA() {
   if (modeloIA) return Promise.resolve(modeloIA);
@@ -61,9 +73,7 @@ function cargarModeloIA() {
 
   promesaModeloIA = cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js')
     .then(() => cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js'))
-    // Volvemos a la versión completa del modelo (alpha 1.0): ahora que el
-    // conjunto a comparar quedó acotado solo a "Perdidos" (no a los 3
-    // tipos), hay margen para priorizar precisión sobre velocidad.
+    // Cargamos el modelo (alpha 1.0 por precisión; si va muy lento cambiar a alpha 0.25)
     .then(() => mobilenet.load({ version: 2, alpha: 1.0 }))
     .then((modelo) => { modeloIA = modelo; return modelo; });
 
@@ -80,13 +90,42 @@ function cargarImagen(src) {
   });
 }
 
-// Las fotos de celular suelen venir en resolución enorme (varios miles de
-// píxeles, varios MB) y hace falta achicarlas antes de analizarlas para
-// que no se trabe el celular. Se usa "contain" (con relleno gris parejo
-// alrededor) en vez de recortar al cuadrado central: recortar podía cortar
-// justo la parte de la foto que hace reconocible al animal/persona (la
-// cabeza, una mancha de color, etc.) y eso le bajaba precisión a la
-// comparación.
+// Nuevo: crear thumbnail (dataURL) para enviar a la búsqueda rápida
+async function makeThumbnailDataURL(file, maxSide = 320, quality = 0.7) {
+  try {
+    if (typeof createImageBitmap === 'function') {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+  } catch (e) {
+    // fallback below
+  }
+  return await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = async () => {
+      try {
+        const img = await cargarImagen(fr.result);
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (err) { reject(err); }
+    };
+    fr.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    fr.readAsDataURL(file);
+  });
+}
+
+// Las fotos de celular suelen venir en resolución enorme y hace falta achicarlas antes de analizarlas.
 function redimensionarImagen(img, maxDim = 320) {
   const canvas = document.createElement('canvas');
   canvas.width = maxDim;
@@ -106,9 +145,7 @@ function redimensionarImagen(img, maxDim = 320) {
   return canvas;
 }
 
-// Deja pasar un instante para que el navegador respire entre imagen e
-// imagen (dibuje, atienda al usuario, etc.), así en celulares de gama
-// baja no se siente "trabado" aunque esté trabajando en el fondo.
+// Deja pasar un instante para que el navegador respire entre imagen e imagen.
 function respirar() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -134,18 +171,61 @@ function similitudCoseno(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+// Nuevo flujo: al cambiar el input abrimos el modal en vez de iniciar de inmediato
 inputBuscarFoto.addEventListener('change', () => {
   const file = inputBuscarFoto.files[0];
-  if (file) iniciarBusquedaPorFoto(file);
+  if (file) {
+    pendingPhotoFile = file;
+    openPhotoSectionModal();
+  }
 });
 
 fotoBusquedaCancelar.addEventListener('click', () => {
   salirDeBusquedaPorFoto();
 });
 
-async function iniciarBusquedaPorFoto(file) {
+fotoBusquedaRefinar && fotoBusquedaRefinar.addEventListener('click', () => {
+  // botón visible después de la búsqueda rápida; ejecuta refine
+  refinarBusquedaPorFoto();
+});
+
+// Modal handlers
+function openPhotoSectionModal() {
+  if (!photoSearchModal) {
+    // Si no existe modal (por compatibilidad), arrancamos por ambos
+    aceptarModalSeccion('ambos');
+    return;
+  }
+  photoSearchModal.style.display = 'flex';
+}
+
+function cerrarModalSeccion() {
+  if (photoSearchModal) photoSearchModal.style.display = 'none';
+}
+
+modalBuscarPerdidos && modalBuscarPerdidos.addEventListener('click', () => aceptarModalSeccion('perdido'));
+modalBuscarEncontrados && modalBuscarEncontrados.addEventListener('click', () => aceptarModalSeccion('encontrado'));
+modalBuscarAmbos && modalBuscarAmbos.addEventListener('click', () => aceptarModalSeccion('ambos'));
+modalBuscarCancelar && modalBuscarCancelar.addEventListener('click', () => {
+  pendingPhotoFile = null;
+  cerrarModalSeccion();
+  inputBuscarFoto.value = '';
+});
+
+// Al aceptar, arrancamos la búsqueda (rápida con thumbnail)
+async function aceptarModalSeccion(seccion) {
+  cerrarModalSeccion();
+  selectedPhotoSection = seccion;
+  if (!pendingPhotoFile) return;
+  await iniciarBusquedaPorFoto(pendingPhotoFile, { section: selectedPhotoSection });
+  pendingPhotoFile = null;
+}
+
+// iniciarBusquedaPorFoto ahora recibe la sección y usa thumbnail por defecto
+async function iniciarBusquedaPorFoto(file, opts = { section: 'ambos' }) {
   modoBusquedaFoto = true;
   vectorFotoBuscada = null;
+  vectorFotoBuscadaFull = null;
   filtroNombre = '';
   inputBuscar.value = '';
   inputBuscar.disabled = true;
@@ -155,18 +235,24 @@ async function iniciarBusquedaPorFoto(file) {
   const urlPreview = URL.createObjectURL(file);
   fotoBusquedaPreview.src = urlPreview;
   fotoBusquedaBar.style.display = 'flex';
-  fotoBusquedaTexto.textContent = 'Analizando la foto...';
+  fotoBusquedaTexto.textContent = 'Generando miniatura y analizando (búsqueda rápida)...';
+  fotoBusquedaRefinar && (fotoBusquedaRefinar.style.display = 'none');
   render();
 
   try {
+    // thumbnail dataURL (much más liviana)
+    const thumbDataUrl = await makeThumbnailDataURL(file, 320, 0.7);
+
     await cargarModeloIA();
-    const img = await cargarImagen(urlPreview);
-    const chico = redimensionarImagen(img);
+    // embedding de la miniatura: búsqueda rápida
+    const img = await cargarImagen(thumbDataUrl);
+    const chico = redimensionarImagen(img, 224); // input reducido para rapidez
     const tensor = modeloIA.infer(chico, true);
     vectorFotoBuscada = await tensor.data();
     tensor.dispose();
-    fotoBusquedaTexto.textContent = 'Buscando coincidencias...';
-    render();
+
+    fotoBusquedaTexto.textContent = 'Buscando coincidencias (rápido)...';
+    render(); // esto llamará a renderPorFoto que usará selectedPhotoSection
   } catch (err) {
     console.error('Error en la búsqueda por foto:', err);
     fotoBusquedaTexto.textContent = 'No se pudo analizar la foto. Probá con otra o intentá de nuevo.';
@@ -176,11 +262,13 @@ async function iniciarBusquedaPorFoto(file) {
 function salirDeBusquedaPorFoto() {
   modoBusquedaFoto = false;
   vectorFotoBuscada = null;
+  vectorFotoBuscadaFull = null;
   inputBuscar.disabled = false;
   btnBuscarFoto.classList.remove('activo');
   tipoToggle.classList.remove('deshabilitado');
   fotoBusquedaBar.style.display = 'none';
   inputBuscarFoto.value = '';
+  fotoBusquedaRefinar && (fotoBusquedaRefinar.style.display = 'none');
   render();
 }
 
@@ -194,8 +282,7 @@ function salirDeBusquedaPorFoto() {
 //  2) Se pide a Firebase SOLO los avisos más recientes (los 10
 //     últimos por fecha) y se pintan apenas llegan — es una
 //     consulta chica (los avisos traen foto adentro, así que
-//     pedir de a pocos es lo que más acelera el primer pantallazo),
-//     así que llega rápido.
+//     pedir de a pocos es lo que más acelera el primer pantallazo).
 //  3) En paralelo, se sigue escuchando el listado COMPLETO en
 //     tiempo real; cuando termina de bajar (y cada vez que algo
 //     cambia), se actualiza la vista y se refresca la caché.
@@ -225,17 +312,7 @@ try {
   console.warn('No se pudo leer la caché local:', e);
 }
 
-// Etapa 2: los 10 más recientes, pedidos por REST puro (fetch normal por
-// HTTPS) en vez de por el canal en tiempo real del SDK. La razón: el canal
-// en tiempo real (WebSocket) negocia su propia sesión antes de entregar el
-// primer dato — un costo fijo aparte de la conexión de red, que paga
-// aunque sea un pedido "de una sola vez" como .once(). Un fetch() común
-// contra la REST API de Firebase es un pedido HTTP de toda la vida: una
-// ida y vuelta, sin negociación de canal — y aprovecha directo el
-// <link rel="preconnect"> del <head>. Para este primer pantallazo, que
-// solo necesita datos una vez (no en vivo), REST es más rápido.
-// La Etapa 3 de abajo sigue usando el canal en tiempo real, porque ahí sí
-// hace falta que quede escuchando cambios.
+// Etapa 2: los 10 más recientes (REST)
 const urlBase = db.ref().toString().replace(/\/$/, '');
 const urlRecientes = urlBase + '/avisos.json?orderBy=%22fecha%22&limitToLast=10';
 
@@ -254,9 +331,7 @@ fetch(urlRecientes)
   })
   .catch((err) => console.error('Error cargando avisos recientes (REST):', err));
 
-// Etapa 3: el listado completo, en vivo. Cuando llega, reemplaza
-// del todo a todosLosAvisos (por eso ya no hace falta mezclar) y
-// deja todo guardado en caché para la próxima visita.
+// Etapa 3: listado completo en vivo
 db.ref('avisos').on('value', (snapshot) => {
   todosLosAvisos = soloMascotas(snapshot.val());
   actualizarSelectDepartamentos();
@@ -264,9 +339,6 @@ db.ref('avisos').on('value', (snapshot) => {
   try {
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(todosLosAvisos));
   } catch (e) {
-    // Si el dataset es muy grande para sessionStorage, simplemente no
-    // cacheamos: la página igual funciona, solo no arranca instantánea
-    // la próxima vez.
     console.warn('No se pudo guardar la caché local (dataset grande):', e);
   }
 });
@@ -282,9 +354,7 @@ selectCiudad.addEventListener('change', () => {
   render();
 });
 
-// Búsqueda por nombre: no distingue mayúsculas/minúsculas, ignora espacios
-// de sobra y hace coincidencia parcial (con poner una parte del nombre
-// alcanza, sin importar en qué lugar del nombre completo esté).
+// Búsqueda por nombre
 inputBuscar.addEventListener('input', () => {
   filtroNombre = normalizarTexto(inputBuscar.value);
   render();
@@ -318,16 +388,10 @@ function actualizarSelectDepartamentos() {
   const sigueExistiendo = [...departamentos].includes(actual);
   selectDepartamento.value = sigueExistiendo ? actual : 'todas';
   filtroDepartamento = selectDepartamento.value;
-  // Si el departamento que tenía elegido ya no está disponible, el filtro
-  // de ciudad se recalcula desde cero (poblarSelectCiudad se encarga de
-  // resetearlo si hace falta).
   poblarSelectCiudad(filtroDepartamento);
 }
 
-// El filtro de ciudad depende del departamento elegido: usa el listado
-// completo de municipios de ese departamento (COLOMBIA_DATA, cargado desde
-// js/colombia-data.js), no solo los que ya tienen avisos publicados, para
-// que se pueda filtrar aunque todavía no haya avisos en esa ciudad.
+// El filtro de ciudad depende del departamento elegido
 function poblarSelectCiudad(depto) {
   if (!depto || depto === 'todas' || !COLOMBIA_DATA[depto]) {
     selectCiudad.innerHTML = '<option value="todas">Elige primero el departamento</option>';
@@ -345,31 +409,18 @@ function poblarSelectCiudad(depto) {
   filtroCiudad = selectCiudad.value;
 }
 
-// Un aviso sin campo "tipo" (publicaciones viejas) se trata como "perdido",
-// que era el único tipo que existía antes de agregar esta división.
+// Un aviso sin campo "tipo" se trata como "perdido"
 function tipoDe(aviso) {
   return aviso.tipo === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
-// Clasifica cada aviso en una de las 3 pestañas del filtro superior.
-// El estado "ya resuelto" manda por encima de todo lo demás: no importa
-// si lo encontró su propio dueño o alguien ajeno, en cuanto está marcado
-// como entregado/reclamado pasa a "Ya encontrado por los dueños".
-// 'perdido'    -> lo siguen buscando, nadie avisó haberlo encontrado todavía.
-// 'encontrado' -> alguien AJENO (no el dueño) lo encontró y publicó el aviso,
-//                 pero todavía nadie lo reclamó (estado sigue "buscando").
-// 'resuelto'   -> ya está de vuelta con su dueño/familia, sin importar quién
-//                 lo haya encontrado.
+// Clasificación en las 3 pestañas
 function categoriaFiltro(aviso) {
   if (aviso.estado === 'encontrado') return 'resuelto';
   return tipoDe(aviso) === 'encontrado' ? 'encontrado' : 'perdido';
 }
 
-// Dice si un aviso debería verse ahora mismo, según los filtros activos
-// en pantalla (ubicación, especie, nombre buscado, pestaña
-// Perdidos/Encontrados por otras personas/Ya aparecieron). Se usa tanto
-// acá como en la carga incremental de la Etapa 2, para no repetir la
-// misma lógica en dos lugares.
+// Comprueba si un aviso pasa los filtros actuales
 function pasaFiltrosActuales(aviso) {
   return (
     (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
@@ -380,22 +431,11 @@ function pasaFiltrosActuales(aviso) {
   );
 }
 
-// Agrega UNA tarjeta al listado sin reconstruir todo lo demás — así los
-// avisos van apareciendo de a poco (más o menos de a 2, como entran por
-// fila en un celular) en vez de esperar a que lleguen los 10 juntos.
-//
-// Nota honesta: como Firebase entrega estos avisos del más viejo de la
-// ráfaga al más nuevo, y acá cada uno se agrega arriba de todo, el orden
-// final queda bien (el más reciente termina arriba) recién cuando ya
-// llegaron todos — durante el ratito que están llegando, puede verse por
-// un instante en un orden que no es 100% el definitivo. Es una
-// contrapartida a propósito: se prioriza que algo aparezca ya mismo por
-// sobre que el orden intermedio sea perfecto, y se termina de acomodar
-// solo en un par de segundos, cuando entra la Etapa 3.
+// Agrega UNA tarjeta al listado sin reconstruir todo
 function agregarCardIncremental(id, aviso) {
-  if (modoBusquedaFoto) return; // ese modo tiene su propia forma de pintar
+  if (modoBusquedaFoto) return; // ese modo pinta distinto
   if (!pasaFiltrosActuales(aviso)) return;
-  if (grid.querySelector(`[data-id="${id}"]`)) return; // ya está, no duplicar
+  if (grid.querySelector(`[data-id="${id}"]`)) return; // ya está
 
   emptyState.style.display = 'none';
   const card = crearCard(id, aviso);
@@ -416,10 +456,6 @@ function render() {
 
   const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
 
-  // Los contadores de "Perdidos" / "Encontrados por otras personas" / "Ya
-  // encontrado por los dueños" reflejan los filtros de categoría, ubicación
-  // y nombre que estén activos, para que la persona sepa cuántos resultados
-  // hay en cada pestaña antes de elegir una.
   contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
   contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
   contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
@@ -442,12 +478,7 @@ function render() {
   });
 }
 
-// Modo "búsqueda por foto": compara contra los avisos de "Perdidos" Y
-// "Encontrados por otras personas" (los que siguen activos, sea porque su
-// dueño los sigue buscando o porque alguien los tiene y no sabe de quién
-// son), sin importar cuál pestaña esté seleccionada en pantalla. Se
-// descartan los ya resueltos porque esos ya no están en búsqueda. Sigue
-// respetando los filtros de ubicación.
+// Modo "búsqueda por foto": compara contra avisos según selectedPhotoSection
 let tokenRenderFoto = 0;
 async function renderPorFoto() {
   if (!vectorFotoBuscada) {
@@ -456,19 +487,13 @@ async function renderPorFoto() {
     return;
   }
 
-  // Si mientras se está calculando esto llega un dato nuevo de Firebase (o
-  // la persona sube otra foto), esta pasada queda vieja: se descarta su
-  // resultado en vez de pisar lo que ya se está mostrando.
   const miToken = ++tokenRenderFoto;
 
-  // Compara contra los avisos de "Perdidos" y "Encontrados por otras
-  // personas" — tiene sentido buscar en ambos, porque la mascota/persona
-  // de la foto puede estar reportada como perdida por su dueño O como
-  // encontrada por alguien que la tiene. Se descartan los ya resueltos
-  // ("Ya encontrado por los dueños"), porque esos ya no están en búsqueda.
   const candidatos = Object.entries(todosLosAvisos).filter(([id, a]) =>
     (a.imagenMiniBase64 || a.imagenBase64) &&
-    (categoriaFiltro(a) === 'perdido' || categoriaFiltro(a) === 'encontrado') &&
+    ((selectedPhotoSection === 'ambos') ||
+      (selectedPhotoSection === 'perdido' && categoriaFiltro(a) === 'perdido') ||
+      (selectedPhotoSection === 'encontrado' && categoriaFiltro(a) === 'encontrado')) &&
     (filtroDepartamento === 'todas' || a.departamento === filtroDepartamento) &&
     (filtroCiudad === 'todas' || a.ciudad === filtroCiudad) &&
     (filtroEspecie === 'todas' || a.especie === filtroEspecie)
@@ -487,36 +512,24 @@ async function renderPorFoto() {
 
   grid.innerHTML = '<p class="loading-msg">Buscando coincidencias visuales…</p>';
 
-  // Se compara contra TODOS los avisos de "Perdidos" que coincidan con los
-  // filtros de categoría/ubicación (sin tope), priorizando el orden por
-  // fecha solo para que el mensaje de avance ("comparando X/Y") tenga
-  // sentido mientras corre.
   const aComparar = [...candidatos].sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
 
   const conSimilitud = [];
-  for (let i = 0; i < aComparar.length; i++) {
+  // Limitar la búsqueda inicial para que no se trabe (ajustar según necesidad)
+  const LIMITE_RAPIDO = 300;
+  for (let i = 0; i < Math.min(aComparar.length, LIMITE_RAPIDO); i++) {
     const [id, aviso] = aComparar[i];
-    // Si alguna foto puntual falla al analizarse (formato raro, imagen
-    // corrupta, etc.), se la salta en vez de cortar toda la búsqueda.
     try {
-      // Se usa siempre la miniatura (base64), nunca la foto grande de
-      // Storage: así el análisis no depende de configurar permisos
-      // especiales entre dominios (CORS) para leer píxeles de una imagen
-      // que vive en otro servidor, y de paso es más liviano de procesar.
       const emb = await obtenerEmbedding(id, aviso.imagenMiniBase64 || aviso.imagenBase64);
       const score = similitudCoseno(vectorFotoBuscada, emb);
       conSimilitud.push({ id, aviso, score });
     } catch (err) {
       console.warn('No se pudo comparar el aviso', id, err);
     }
-    if (miToken !== tokenRenderFoto) return; // superado por una búsqueda más nueva
+    if (miToken !== tokenRenderFoto) return;
 
-    // Un respiro cada pocas imágenes: evita que el navegador se sienta
-    // trabado en celulares de gama baja, y de paso muestra avance real.
-    // Como ahora el modelo es más pesado (más precisión), se respira más
-    // seguido que antes.
-    if (i % 2 === 0) {
-      fotoBusquedaTexto.textContent = `Comparando fotos... (${i + 1}/${aComparar.length})`;
+    if (i % 4 === 0) {
+      fotoBusquedaTexto.textContent = `Comparando fotos... (${i + 1}/${Math.min(aComparar.length, LIMITE_RAPIDO)})`;
       await respirar();
     }
   }
@@ -524,9 +537,13 @@ async function renderPorFoto() {
   if (!modoBusquedaFoto || !vectorFotoBuscada || miToken !== tokenRenderFoto) return;
 
   conSimilitud.sort((a, b) => b.score - a.score);
-  const mejores = conSimilitud.slice(0, 30);
+  const TOP_RAPIDO = 30;
+  const mejores = conSimilitud.slice(0, TOP_RAPIDO);
 
-  fotoBusquedaTexto.textContent = 'Mostrando avisos de "Perdidos" y "Encontrados" parecidos a esta foto, de más a menos parecido.';
+  lastConSimilitud = conSimilitud;
+
+  // Texto modificado:
+  fotoBusquedaTexto.textContent = 'Mostrando resultados. Pulsa el botón de la derecha para que sea más preciso (tarda más).';
   contador.textContent = mejores.length + (mejores.length === 1 ? ' coincidencia' : ' coincidencias');
   grid.innerHTML = '';
 
@@ -539,6 +556,72 @@ async function renderPorFoto() {
   mejores.forEach(({ id, aviso, score }) => {
     grid.appendChild(crearCard(id, aviso, score));
   });
+
+  fotoBusquedaRefinar && (fotoBusquedaRefinar.style.display = 'inline-block');
+}
+
+// Refine: recalcula embeddings con mayor resolución y re-rankea solo top-N
+async function refinarBusquedaPorFoto() {
+  if (!lastConSimilitud || lastConSimilitud.length === 0) return;
+  if (!fotoBusquedaPreview || !fotoBusquedaPreview.src) return;
+
+  fotoBusquedaTexto.textContent = 'Refinando búsqueda (mayor precisión)...';
+  fotoBusquedaRefinar && (fotoBusquedaRefinar.style.display = 'none');
+
+  try {
+    await cargarModeloIA();
+
+    // Recalcular vector de la foto de usuario con mayor resolución (más precisión)
+    if (!vectorFotoBuscadaFull) {
+      const imgUser = await cargarImagen(fotoBusquedaPreview.src);
+      const chicoFull = redimensionarImagen(imgUser, 800); // aumentado a 800 para más detalle
+      const tensorFull = modeloIA.infer(chicoFull, true);
+      vectorFotoBuscadaFull = await tensorFull.data();
+      tensorFull.dispose();
+    }
+
+    // Tomar más candidatos para refine (más opciones para re-rankear)
+    const TOP_REFINE = 50; // aumentamos a 50 candidatos
+    const candidatosParaRefinar = lastConSimilitud.slice(0, TOP_REFINE);
+
+    const refinados = [];
+    for (let i = 0; i < candidatosParaRefinar.length; i++) {
+      const { id, aviso } = candidatosParaRefinar[i];
+      try {
+        // Si la publicación contiene imagen full-res la usamos, si no la miniatura
+        const fuente = aviso.imagenBase64 || aviso.imagenMiniBase64;
+        const img = await cargarImagen(fuente);
+        const canvas = redimensionarImagen(img, 720); // más detalle que el rápido
+        const tensor = modeloIA.infer(canvas, true);
+        const emb = await tensor.data();
+        tensor.dispose();
+        const score = similitudCoseno(vectorFotoBuscadaFull, emb);
+        refinados.push({ id, aviso, score });
+      } catch (err) {
+        console.warn('Error refinando aviso', id, err);
+      }
+      // respiramos de vez en cuando para no bloquear UI
+      if (i % 3 === 0) await respirar();
+    }
+
+    refinados.sort((a, b) => b.score - a.score);
+    const final = refinados.slice(0, 40);
+    fotoBusquedaTexto.textContent = 'Resultados refinados — de más a menos parecido.';
+    grid.innerHTML = '';
+    if (final.length === 0) {
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+    final.forEach(({ id, aviso, score }) => {
+      grid.appendChild(crearCard(id, aviso, score));
+    });
+    contador.textContent = final.length + (final.length === 1 ? ' coincidencia' : ' coincidencias');
+  } catch (err) {
+    console.error('Error refinando búsqueda:', err);
+    fotoBusquedaTexto.textContent = 'No se pudo refinar la búsqueda. Probá de nuevo.';
+    fotoBusquedaRefinar && (fotoBusquedaRefinar.style.display = 'inline-block');
+  }
 }
 
 function crearCard(id, aviso, similitud) {
@@ -550,10 +633,6 @@ function crearCard(id, aviso, similitud) {
   const numComentarios = aviso.comentarios ? Object.keys(aviso.comentarios).length : 0;
   const { stampClass, stampTexto } = calcularSello(aviso);
 
-  // Cualquier aviso ya resuelto (estado "encontrado") lleva la cinta
-  // diagonal, sin importar si lo encontró su propio dueño/familia (tipo
-  // "perdido") o alguien ajeno que después lo entregó (tipo "encontrado").
-  // El texto cambia según el caso para que quede claro qué pasó.
   const yaResuelto = aviso.estado === 'encontrado';
   const textoRibbon = tipoDe(aviso) === 'encontrado' ? 'Ya entregado' : 'Ya apareció';
 
@@ -584,10 +663,6 @@ function crearCard(id, aviso, similitud) {
   return a;
 }
 
-// Calcula el texto y color del sello según tipo (perdido = lo estoy
-// buscando / encontrado = lo tengo yo) y estado (buscando = sigue activo /
-// encontrado = ya se resolvió el caso).
-// aviso.tipo puede no existir en publicaciones viejas: se asume 'perdido'.
 function calcularSello(aviso) {
   const esTipoEncontrado = tipoDe(aviso) === 'encontrado';
   const resuelto = aviso.estado === 'encontrado';
@@ -596,8 +671,6 @@ function calcularSello(aviso) {
     if (resuelto) {
       return { stampClass: 'encontrado', stampTexto: 'YA ENTREGADO' };
     }
-    // Todavía nadie confirma que sea el dueño/familia: sello rojo para que
-    // se note que está pendiente de que su dueño lo reclame.
     return { stampClass: 'pendiente', stampTexto: 'ENCONTRADO' };
   }
 
@@ -607,9 +680,6 @@ function calcularSello(aviso) {
   return { stampClass: 'mascota', stampTexto: 'PERDIDO' };
 }
 
-// Arma el texto de ubicación combinando ciudad/municipio, sector y
-// departamento, sin dejar separadores sueltos cuando algún dato falta
-// (varios campos son opcionales desde que se publica el aviso).
 function lugarTexto(aviso) {
   const partes = [];
   if (aviso.ciudad) partes.push(aviso.ciudad);
@@ -625,10 +695,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Deja el texto listo para comparar: sin espacios de sobra al inicio/final,
-// todo en minúsculas y sin tildes (así "Sara" y "SARA " o "sára" matchean
-// igual). Se usa tanto para lo que escribe la persona como para el nombre
-// guardado en cada aviso.
 function normalizarTexto(str) {
   return (str || '')
     .toString()
