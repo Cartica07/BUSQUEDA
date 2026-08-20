@@ -335,24 +335,43 @@ try {
   console.warn('No se pudo leer la caché local:', e);
 }
 
-// Etapa 2: los 10 más recientes (REST)
+// Etapa 2: primero los últimos "perdido" y después los últimos
+// "encontrado" (dos consultas separadas, por el campo "tipo" — ya está
+// indexado en las reglas). Antes se pedía una sola tanda mezclada de las
+// últimas publicaciones sin importar el tipo: si en ese momento lo más
+// reciente era casi todo de un solo tipo, la otra pestaña casi no traía
+// nada hasta que llegaba la Etapa 3. Separando la consulta por tipo, cada
+// pestaña arranca con su propia tanda de recientes, sin depender de qué
+// se haya publicado más en estos últimos días.
 const urlBase = db.ref().toString().replace(/\/$/, '');
-const urlRecientes = urlBase + '/avisos.json?orderBy=%22fecha%22&limitToLast=10';
 
-fetch(urlRecientes)
-  .then((res) => {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
-  .then((datos) => {
-    const recientes = soloMascotas(datos);
-    Object.entries(recientes).forEach(([id, aviso]) => {
-      todosLosAvisos[id] = aviso;
-      agregarCardIncremental(id, aviso);
+function cargarTandaPorTipo(tipo) {
+  const url = urlBase + '/avisos.json?orderBy=%22tipo%22&equalTo=%22' + tipo + '%22&limitToLast=10';
+  return fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then((datos) => soloMascotas(datos || {}))
+    .catch((err) => {
+      console.error('Error cargando avisos recientes (' + tipo + '):', err);
+      return {};
+    });
+}
+
+Promise.all([cargarTandaPorTipo('perdido'), cargarTandaPorTipo('encontrado')])
+  .then(([perdidos, encontrados]) => {
+    // Se agregan en este orden a propósito: primero perdidos, después
+    // encontrados — así se ve tal como se pidió, aunque las dos consultas
+    // se hayan disparado en paralelo (por velocidad).
+    [perdidos, encontrados].forEach((grupo) => {
+      Object.entries(grupo).forEach(([id, aviso]) => {
+        todosLosAvisos[id] = aviso;
+        agregarCardIncremental(id, aviso);
+      });
     });
     actualizarSelectDepartamentos();
-  })
-  .catch((err) => console.error('Error cargando avisos recientes (REST):', err));
+  });
 
 // Etapa 3: listado completo en vivo
 db.ref('avisos').on('value', (snapshot) => {
