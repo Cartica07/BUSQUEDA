@@ -368,6 +368,7 @@ Promise.all([cargarTandaPorTipo('perdido'), cargarTandaPorTipo('encontrado')])
       Object.entries(grupo).forEach(([id, aviso]) => {
         todosLosAvisos[id] = aviso;
         agregarCardIncremental(id, aviso);
+        actualizarContadorIncremental(aviso);
       });
     });
     actualizarSelectDepartamentos();
@@ -471,6 +472,33 @@ function pasaFiltrosActuales(aviso) {
     (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre)) &&
     categoriaFiltro(aviso) === filtroTipo
   );
+}
+
+// Sube en 1 el número de la pestaña que corresponda (Perdidos/Encontrados/
+// Ya aparecieron), a medida que van llegando avisos — así nunca se ve un
+// "0" mientras carga: arranca en "–" (ver index.html) y desde el primer
+// aviso que llega ya muestra un número real, que va subiendo de a uno.
+// Lee el número actual de la pantalla en vez de llevar la cuenta aparte,
+// para que quede bien aunque en el medio se haya disparado un render()
+// completo (por ejemplo, si alguien cambia un filtro justo mientras esto
+// todavía está cargando) — siempre sigue sumando sobre lo que ya se ve.
+function actualizarContadorIncremental(aviso) {
+  const coincideBase =
+    (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
+    (filtroCiudad === 'todas' || aviso.ciudad === filtroCiudad) &&
+    (filtroEspecie === 'todas' || aviso.especie === filtroEspecie) &&
+    (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre));
+  if (!coincideBase) return;
+
+  const spanPorCategoria = {
+    perdido: contadorPerdidos,
+    encontrado: contadorEncontrados,
+    resuelto: contadorResueltos
+  };
+  const span = spanPorCategoria[categoriaFiltro(aviso)];
+  if (!span) return;
+  const actual = parseInt(span.textContent, 10);
+  span.textContent = (Number.isNaN(actual) ? 0 : actual) + 1;
 }
 
 // Agrega UNA tarjeta al listado sin reconstruir todo
