@@ -8,6 +8,13 @@ let filtroCiudad = 'todas';
 let filtroNombre = '';
 let filtroTipo = 'perdido';
 let filtroEspecie = 'todas'; // 'todas' | 'perro' | 'gato'
+// Controla si el próximo render() debe animar los 3 números de las
+// pestañas en vez de escribirlos de una — se activa una sola vez, justo
+// antes de que llegue el total real (Etapa 3), para que esa transición se
+// vea como una continuación de la subida animada de la Etapa 2 y no como
+// un pisado seco. Los renders posteriores (cambios de filtro, etc.)
+// siguen siendo instantáneos, como corresponde.
+let animarProximoConteo = false;
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -368,9 +375,14 @@ Promise.all([cargarTandaPorTipo('perdido'), cargarTandaPorTipo('encontrado')])
       Object.entries(grupo).forEach(([id, aviso]) => {
         todosLosAvisos[id] = aviso;
         agregarCardIncremental(id, aviso);
-        actualizarContadorIncremental(aviso);
       });
     });
+    // Primer vistazo: anima los 3 números desde "–" hasta lo que trajo
+    // esta tanda inicial. Todavía no es el total real (ese llega con la
+    // Etapa 3 de abajo), pero ya da una sensación de carga en progreso en
+    // vez de un salto seco al final.
+    animarContadoresPorGrupo([...Object.values(perdidos), ...Object.values(encontrados)]);
+    animarProximoConteo = true;
     actualizarSelectDepartamentos();
   });
 
@@ -474,31 +486,46 @@ function pasaFiltrosActuales(aviso) {
   );
 }
 
-// Sube en 1 el número de la pestaña que corresponda (Perdidos/Encontrados/
-// Ya aparecieron), a medida que van llegando avisos — así nunca se ve un
-// "0" mientras carga: arranca en "–" (ver index.html) y desde el primer
-// aviso que llega ya muestra un número real, que va subiendo de a uno.
-// Lee el número actual de la pantalla en vez de llevar la cuenta aparte,
-// para que quede bien aunque en el medio se haya disparado un render()
-// completo (por ejemplo, si alguien cambia un filtro justo mientras esto
-// todavía está cargando) — siempre sigue sumando sobre lo que ya se ve.
-function actualizarContadorIncremental(aviso) {
-  const coincideBase =
-    (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
-    (filtroCiudad === 'todas' || aviso.ciudad === filtroCiudad) &&
-    (filtroEspecie === 'todas' || aviso.especie === filtroEspecie) &&
-    (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre));
-  if (!coincideBase) return;
+// Anima un número subiendo (o bajando) suavemente desde lo que hay en
+// pantalla hasta `valorFinal`, en vez de cambiarlo de un salto. Sin esto,
+// aunque el código actualice el número "de a uno" en un bucle, el
+// navegador ni llega a pintar los pasos intermedios porque el bucle
+// corre completo antes de que haya chance de repintar — se termina
+// viendo como un salto igual. Animándolo a propósito con
+// requestAnimationFrame, la subida sí se ve.
+function animarContadorHacia(span, valorFinal, duracionMs = 600) {
+  const valorInicial = parseInt(span.textContent, 10) || 0;
+  if (valorInicial === valorFinal) {
+    span.textContent = valorFinal;
+    return;
+  }
+  const inicioTs = performance.now();
+  function paso(ts) {
+    const t = Math.min(1, (ts - inicioTs) / duracionMs);
+    const suavizado = 1 - Math.pow(1 - t, 2); // arranca rápido, llega suave
+    span.textContent = Math.round(valorInicial + (valorFinal - valorInicial) * suavizado);
+    if (t < 1) requestAnimationFrame(paso);
+  }
+  requestAnimationFrame(paso);
+}
 
-  const spanPorCategoria = {
-    perdido: contadorPerdidos,
-    encontrado: contadorEncontrados,
-    resuelto: contadorResueltos
-  };
-  const span = spanPorCategoria[categoriaFiltro(aviso)];
-  if (!span) return;
-  const actual = parseInt(span.textContent, 10);
-  span.textContent = (Number.isNaN(actual) ? 0 : actual) + 1;
+// Cuenta, entre un grupo de avisos recién llegados, cuántos caen en cada
+// una de las 3 pestañas (respetando los filtros de ubicación/especie/
+// nombre activos en este momento) y anima los 3 números hacia ese
+// resultado.
+function animarContadoresPorGrupo(avisos) {
+  const conteo = { perdido: 0, encontrado: 0, resuelto: 0 };
+  avisos.forEach((aviso) => {
+    const coincideBase =
+      (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
+      (filtroCiudad === 'todas' || aviso.ciudad === filtroCiudad) &&
+      (filtroEspecie === 'todas' || aviso.especie === filtroEspecie) &&
+      (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre));
+    if (coincideBase) conteo[categoriaFiltro(aviso)]++;
+  });
+  animarContadorHacia(contadorPerdidos, conteo.perdido);
+  animarContadorHacia(contadorEncontrados, conteo.encontrado);
+  animarContadorHacia(contadorResueltos, conteo.resuelto);
 }
 
 // Agrega UNA tarjeta al listado sin reconstruir todo
@@ -526,10 +553,25 @@ function render() {
 
   const todasLasCoincidencias = Object.entries(todosLosAvisos).filter(coincideFiltrosBase);
 
-  contadorPerdidos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
-  contadorEncontrados.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
-  contadorResueltos.textContent = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
+  const totalPerdidos = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'perdido').length;
+  const totalEncontrados = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'encontrado').length;
+  const totalResueltos = todasLasCoincidencias.filter(([id, a]) => categoriaFiltro(a) === 'resuelto').length;
 
+  if (animarProximoConteo) {
+    // Esta es la transición de "tanda inicial" a "total real" (Etapa 3
+    // recién llegada) — se anima para que se sienta continuación de la
+    // subida de la Etapa 2, no un pisado seco.
+    animarContadorHacia(contadorPerdidos, totalPerdidos);
+    animarContadorHacia(contadorEncontrados, totalEncontrados);
+    animarContadorHacia(contadorResueltos, totalResueltos);
+    animarProximoConteo = false;
+  } else {
+    // Cualquier otro render (caché al abrir, cambios de filtro, updates
+    // en vivo posteriores) sigue siendo instantáneo, como antes.
+    contadorPerdidos.textContent = totalPerdidos;
+    contadorEncontrados.textContent = totalEncontrados;
+    contadorResueltos.textContent = totalResueltos;
+  }
   const entradas = todasLasCoincidencias
     .filter(([id, a]) => categoriaFiltro(a) === filtroTipo)
     .sort((a, b) => (b[1].fecha || 0) - (a[1].fecha || 0));
