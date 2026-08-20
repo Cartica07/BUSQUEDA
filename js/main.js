@@ -9,12 +9,13 @@ let filtroNombre = '';
 let filtroTipo = 'perdido';
 let filtroEspecie = 'todas'; // 'todas' | 'perro' | 'gato'
 // Controla si el próximo render() debe animar los 3 números de las
-// pestañas en vez de escribirlos de una — se activa una sola vez, justo
-// antes de que llegue el total real (Etapa 3), para que esa transición se
-// vea como una continuación de la subida animada de la Etapa 2 y no como
-// un pisado seco. Los renders posteriores (cambios de filtro, etc.)
-// siguen siendo instantáneos, como corresponde.
-let animarProximoConteo = false;
+// pestañas (contando de una desde 0 hasta el total) en vez de escribirlos
+// directo. Arranca en `true`: la primera vez que se sepa el total real
+// (Etapa 3), se anima. Si ya había caché con números reales de la visita
+// anterior, se apaga más abajo para no animar algo que ya se veía bien.
+// Los renders posteriores a esa primera vez (cambios de filtro, updates
+// en vivo) siguen siendo instantáneos, como corresponde.
+let animarProximoConteo = true;
 
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
@@ -336,6 +337,9 @@ try {
   if (cache) {
     todosLosAvisos = soloMascotas(JSON.parse(cache));
     actualizarSelectDepartamentos();
+    // Ya hay números reales (de la visita anterior) para mostrar de una:
+    // no hace falta animar la próxima vez que se confirme el total.
+    animarProximoConteo = false;
     render();
   }
 } catch (e) {
@@ -371,18 +375,16 @@ Promise.all([cargarTandaPorTipo('perdido'), cargarTandaPorTipo('encontrado')])
     // Se agregan en este orden a propósito: primero perdidos, después
     // encontrados — así se ve tal como se pidió, aunque las dos consultas
     // se hayan disparado en paralelo (por velocidad).
+    // Nota: acá NO se tocan los 3 números de arriba (Perdidos/Encontrados/
+    // Ya aparecieron) — esos se quedan en "–" hasta que llega el total
+    // real en la Etapa 3, y ahí recién arrancan a contar de una, sin
+    // pasos intermedios.
     [perdidos, encontrados].forEach((grupo) => {
       Object.entries(grupo).forEach(([id, aviso]) => {
         todosLosAvisos[id] = aviso;
         agregarCardIncremental(id, aviso);
       });
     });
-    // Primer vistazo: anima los 3 números desde "–" hasta lo que trajo
-    // esta tanda inicial. Todavía no es el total real (ese llega con la
-    // Etapa 3 de abajo), pero ya da una sensación de carga en progreso en
-    // vez de un salto seco al final.
-    animarContadoresPorGrupo([...Object.values(perdidos), ...Object.values(encontrados)]);
-    animarProximoConteo = true;
     actualizarSelectDepartamentos();
   });
 
@@ -509,25 +511,6 @@ function animarContadorHacia(span, valorFinal, duracionMs = 600) {
   requestAnimationFrame(paso);
 }
 
-// Cuenta, entre un grupo de avisos recién llegados, cuántos caen en cada
-// una de las 3 pestañas (respetando los filtros de ubicación/especie/
-// nombre activos en este momento) y anima los 3 números hacia ese
-// resultado.
-function animarContadoresPorGrupo(avisos) {
-  const conteo = { perdido: 0, encontrado: 0, resuelto: 0 };
-  avisos.forEach((aviso) => {
-    const coincideBase =
-      (filtroDepartamento === 'todas' || aviso.departamento === filtroDepartamento) &&
-      (filtroCiudad === 'todas' || aviso.ciudad === filtroCiudad) &&
-      (filtroEspecie === 'todas' || aviso.especie === filtroEspecie) &&
-      (!filtroNombre || normalizarTexto(aviso.nombre).includes(filtroNombre));
-    if (coincideBase) conteo[categoriaFiltro(aviso)]++;
-  });
-  animarContadorHacia(contadorPerdidos, conteo.perdido);
-  animarContadorHacia(contadorEncontrados, conteo.encontrado);
-  animarContadorHacia(contadorResueltos, conteo.resuelto);
-}
-
 // Agrega UNA tarjeta al listado sin reconstruir todo
 function agregarCardIncremental(id, aviso) {
   if (modoBusquedaFoto) return; // ese modo pinta distinto
@@ -560,7 +543,12 @@ function render() {
   if (animarProximoConteo) {
     // Esta es la transición de "tanda inicial" a "total real" (Etapa 3
     // recién llegada) — se anima para que se sienta continuación de la
-    // subida de la Etapa 2, no un pisado seco.
+    // subida de la Etapa 2, no un pisado seco. Acá también se apaga el
+    // pulso: ya es el número confirmado, no hace falta seguir dando la
+    // señal de "todavía puede cambiar".
+    contadorPerdidos.classList.remove('cargando');
+    contadorEncontrados.classList.remove('cargando');
+    contadorResueltos.classList.remove('cargando');
     animarContadorHacia(contadorPerdidos, totalPerdidos);
     animarContadorHacia(contadorEncontrados, totalEncontrados);
     animarContadorHacia(contadorResueltos, totalResueltos);
