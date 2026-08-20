@@ -9,6 +9,9 @@
 <link rel="dns-prefetch" href="https://www.gstatic.com">
 <link rel="preconnect" href="https://busqueda-855cb-default-rtdb.firebaseio.com">
 <link rel="dns-prefetch" href="https://busqueda-855cb-default-rtdb.firebaseio.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -17,16 +20,12 @@
   <a href="index.html" class="brand">
     <div class="mark"><img src="img/colombia-flag.png" alt="Bandera de Colombia" class="mark-flag"></div>
     <div>
-      <span class="name">Se Busca</span>
-      <span class="sub">Colombia<br>Terremoto 10 ago 2026</span>
+      <span class="name">Se busca<br>mascotas</span>
+      <span class="sub">Colombia</span>
     </div>
   </a>
   <a href="crear.html" class="btn-publicar">+ Publicar aviso</a>
 </header>
-
-<div class="context-banner">
-  Red comunitaria para reencontrar mascotas tras el sismo. <strong>Si es una emergencia de vida, llamá al 123.</strong>
-</div>
 
 <div class="filters">
   <div class="tab-group" id="especieToggle">
@@ -54,22 +53,27 @@
     </label>
   </div>
   <div class="foto-busqueda-bar" id="fotoBusquedaBar" style="display:none">
-    <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
-    <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
-    <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
+    <div class="foto-busqueda-info">
+      <img id="fotoBusquedaPreview" class="foto-busqueda-preview" alt="Foto que estás buscando">
+      <span id="fotoBusquedaTexto" class="foto-busqueda-texto"></span>
+    </div>
+    <div class="foto-busqueda-acciones">
+      <button type="button" id="fotoBusquedaRefinar" class="foto-busqueda-refinar" style="display:none">Buscar con mayor precisión</button>
+      <button type="button" id="fotoBusquedaCancelar" class="foto-busqueda-cancelar">✕ Quitar</button>
+    </div>
   </div>
   <div class="tipo-toggle" id="tipoToggle">
     <button class="tipo-btn active" data-tipo="perdido">
-      <span class="tipo-label">Perdidos</span>
-      <span class="tipo-count" id="contadorPerdidos">0</span>
+      <span class="tipo-label">Publicados como perdidos</span>
+      <span class="tipo-count" id="contadorPerdidos">–</span>
     </button>
     <button class="tipo-btn" data-tipo="encontrado">
       <span class="tipo-label">Encontrados por otras personas</span>
-      <span class="tipo-count" id="contadorEncontrados">0</span>
+      <span class="tipo-count" id="contadorEncontrados">–</span>
     </button>
     <button class="tipo-btn" data-tipo="resuelto">
       <span class="tipo-label">Ya encontrado por los dueños</span>
-      <span class="tipo-count" id="contadorResueltos">0</span>
+      <span class="tipo-count" id="contadorResueltos">–</span>
     </button>
   </div>
 </div>
@@ -85,9 +89,28 @@
 
 <span class="contador contador-bottom" id="contador"></span>
 
-<footer>
-  Hecho por IG: <a href="https://instagram.com/alexander.cv7" target="_blank" rel="noopener">alexander.cv7</a>, para la comunidad. Si necesitas ayuda con la creación de un aviso u otra cuestión no dudes en contactarme.
+<button type="button" id="btnSubirArriba" class="btn-subir-arriba" aria-label="Volver arriba" title="Volver arriba">↑</button>
+
+
+<footer class="footer-creditos" id="footerCreditos">
+  Realizado sin ánimo de lucro, por y para la comunidad. En caso de necesitar ayuda con la creación de un aviso u otra cuestión, contactar a IG: <a href="https://instagram.com/alexander.cv7" target="_blank" rel="noopener">alexander.cv7</a>
 </footer>
+
+<!-- Modal simple para elegir la sección a buscar: Perdidos / Encontrados / Ambos -->
+<div id="photoSearchModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:9999">
+  <div style="background:#fff; padding:16px; border-radius:8px; width:320px; max-width:90%; text-align:center; box-shadow:0 6px 24px rgba(0,0,0,0.2)">
+    <div style="font-weight:600; margin-bottom:8px">¿En qué sección querés buscar coincidencias?</div>
+    <div style="font-size:14px; color:#555; margin-bottom:12px">Eligir una seccion reduce el tiempo de busqueda</div>
+    <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px">
+      <button id="modalBuscarPerdidos" style="flex:1; padding:8px 10px">Publicados como perdidos</button>
+      <button id="modalBuscarEncontrados" style="flex:1; padding:8px 10px">Encontrados por otras personas</button>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:center">
+      <button id="modalBuscarAmbos" style="flex:1; padding:8px 10px">Ambos</button>
+      <button id="modalBuscarCancelar" style="flex:1; padding:8px 10px">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" defer></script>
