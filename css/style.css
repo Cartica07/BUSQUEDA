@@ -642,11 +642,12 @@ select.admin-select-especie{ font-family:'Inter',sans-serif; cursor:pointer; }
   .card .btn-contactar{ font-size:12.5px; padding:7px 0; margin-top:8px; }
   .tipo-toggle{ max-width:100%; }
   .tipo-btn{ padding:9px 4px 8px; gap:3px; }
-  .tipo-label{ font-size:11.5px; letter-spacing:0.01em; line-height:1.2; }
-  /* "Ya encontrado por los dueños" es el texto más largo de los 3 y quedaba
-     apretado en 3 líneas chiquitas; un poco más grande + reparto parejo
-     (text-wrap:balance de arriba) lo deja más legible. */
-  .tipo-btn[data-tipo="resuelto"] .tipo-label{ font-size:12.5px; }
+  /* Las 3 pestañas van todas al mismo tamaño de letra (antes solo la
+     tercera estaba agrandada, de cuando su texto era el más largo de las
+     3 — ya no lo es, así que quedaba disparejo con las otras dos). Con
+     text-wrap:balance de arriba, el texto se reparte solo en líneas
+     parejas sin necesidad de agrandar la casilla ni tocar el contador. */
+  .tipo-label{ font-size:12.5px; letter-spacing:0.01em; line-height:1.2; }
   .tipo-count{ font-size:11px; padding:1px 7px; }
   .contador{ font-size:11px; }
   .admin-row{ flex-wrap:wrap; }
